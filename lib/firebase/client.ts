@@ -1,16 +1,14 @@
 "use client";
 
 import { initializeApp, getApps, getApp, FirebaseOptions } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
 
-// Firebase client configuration
-function loadClientConfig(): FirebaseOptions {
+// Firebase client configuration, or null in guest mode (FR-A-10)
+function loadClientConfig(): FirebaseOptions | null {
   const clientConfig = process.env.NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG;
 
   if (!clientConfig) {
-    throw new Error(
-      "NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG is not set. Copy .env.local.example to .env.local and fill it with your Firebase web app config."
-    );
+    return null;
   }
 
   try {
@@ -22,9 +20,13 @@ function loadClientConfig(): FirebaseOptions {
   }
 }
 
+const config = loadClientConfig();
+
 // Initialize Firebase app (prevent duplicate initialization)
-const app = getApps().length ? getApp() : initializeApp(loadClientConfig());
-const auth = getAuth(app);
+const app = config ? (getApps().length ? getApp() : initializeApp(config)) : null;
+
+// Null in guest mode, where the UI offers no sign-in to reach it
+const auth: Auth | null = app ? getAuth(app) : null;
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, googleProvider };

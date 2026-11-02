@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useLanguage } from "@/contexts/language-context";
 import type { ServerUser } from "@/lib/firebase/auth-server";
 import Loading from "../icons/Loading";
 import AuthModal from "../modals/AuthModal";
@@ -13,6 +14,7 @@ type AuthButtonsProps = {
 
 export default function AuthButtons({ user }: AuthButtonsProps) {
   const { loadingProvider, isAuthLoading, signOut } = useAuth();
+  const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -42,7 +44,7 @@ export default function AuthButtons({ user }: AuthButtonsProps) {
             aria-hidden="true"
           />
         )}
-        <span>Sign Out</span>
+        <span>{t("signOut")}</span>
       </button>
     );
   }
@@ -54,7 +56,7 @@ export default function AuthButtons({ user }: AuthButtonsProps) {
         onClick={handleOpenModal}
         disabled={isAuthLoading}
       >
-        <span>Sign In</span>
+        <span>{t("signIn")}</span>
       </button>
 
       <AuthModal isOpen={isModalOpen} onClose={handleCloseModal} />

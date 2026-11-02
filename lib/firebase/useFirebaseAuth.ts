@@ -4,9 +4,7 @@ import { useState } from "react";
 import {
   signInWithPopup,
   signOut as firebaseSignOut,
-  signInAnonymously as firebaseSignInAnonymously,
   UserCredential,
-  linkWithPopup as firebaseLinkWithPopup,
   reauthenticateWithPopup,
 } from "firebase/auth";
 import { auth, googleProvider } from "./client";
@@ -24,13 +22,18 @@ import { getErrorMessage } from "../utils/firebaseErrors";
 /**
  * The auth operations that can be in flight, for loading state management
  */
-export type AuthOperation =
-  | "google"
-  | "anonymous"
-  | "signout"
-  | "link"
-  | "delete"
-  | null;
+export type AuthOperation = "google" | "signout" | "delete" | null;
+
+// In guest mode (FR-A-10) there is no client auth and nobody to sign out
+const signOutClient = () =>
+  auth ? firebaseSignOut(auth) : Promise.resolve();
+
+function requireAuth() {
+  if (!auth) {
+    throw new Error("Accounts are not set up on this site.");
+  }
+  return auth;
+}
 
 /**
  * The app's auth operations and their shared loading state.
@@ -51,14 +54,14 @@ export function useFirebaseAuth() {
    * Handles the common authentication flow with the server
    */
   const processServerAuth = async (
-    credentialPromise: Promise<UserCredential>,
+    signIn: () => Promise<UserCredential>,
     operation: string,
     provider: AuthOperation
   ): Promise<AuthResult> => {
     try {
       setLoadingProvider(provider);
       // Process user authentication
-      const result = await credentialPromise;
+      const result = await signIn();
       // Get Firebase ID token
       const idToken = await result.user.getIdToken();
 
@@ -68,7 +71,7 @@ export function useFirebaseAuth() {
       if (!authResult.success) {
         // The server holds no session for this sign-in, so the client must not
         // keep one either - otherwise the two disagree about who is signed in.
-        await firebaseSignOut(auth);
+        await signOutClient();
         showErrorMessage(
           authResult.error || `An error occurred during ${operation}.`
         );
@@ -96,20 +99,9 @@ export function useFirebaseAuth() {
    */
   const signInWithGoogle = async (): Promise<AuthResult> => {
     return processServerAuth(
-      signInWithPopup(auth, googleProvider),
+      () => signInWithPopup(requireAuth(), googleProvider),
       "Google sign in",
       "google"
-    );
-  };
-
-  /**
-   * Sign in anonymously
-   */
-  const signInAnonymously = async (): Promise<AuthResult> => {
-    return processServerAuth(
-      firebaseSignInAnonymously(auth),
-      "Anonymous sign in",
-      "anonymous"
     );
   };
 
@@ -123,7 +115,7 @@ export function useFirebaseAuth() {
       // Both sides are cleared independently: if one fails the other still has
       // to happen, or client and server disagree about who is signed in.
       const [clientOutcome, sessionOutcome] = await Promise.allSettled([
-        firebaseSignOut(auth),
+        signOutClient(),
         deleteSession(),
       ]);
 
@@ -166,56 +158,6 @@ export function useFirebaseAuth() {
   };
 
   /**
-   * Link anonymous account with Google account
-   */
-  const linkWithGoogle = async (): Promise<AuthResult> => {
-    try {
-      setLoadingProvider("link");
-
-      // Check if user is authenticated
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error("No authenticated user found");
-      }
-
-      // Link with Google account
-      const result = await firebaseLinkWithPopup(currentUser, googleProvider);
-
-      // Get new ID token after linking
-      const idToken = await result.user.getIdToken(true);
-
-      // Send new token to server to update session
-      const authResult = await sendTokenToServer(idToken);
-
-      // The account is linked at this point whatever the server answers, and
-      // the existing session cookie still covers the same uid.
-      router.refresh();
-
-      if (authResult.success) {
-        showSuccessMessage("Account successfully linked.");
-      } else {
-        showWarningMessage(
-          authResult.error || "Account linked, but the session was not updated."
-        );
-      }
-
-      return authResult;
-    } catch (error) {
-      console.error("Account linking error:", error);
-      showFirebaseError(error, "An error occurred while linking account.");
-      return {
-        success: false,
-        error: getErrorMessage(
-          error,
-          "An error occurred while upgrading account."
-        ),
-      };
-    } finally {
-      setLoadingProvider(null);
-    }
-  };
-
-  /**
    * Delete user account - both on client and server
    * Server-side deletion bypasses Firebase's `requires-recent-login` rule, so
    * the user re-authenticates first and the fresh ID token is sent as proof.
@@ -224,16 +166,12 @@ export function useFirebaseAuth() {
     try {
       setLoadingProvider("delete");
 
-      const currentUser = auth.currentUser;
+      const currentUser = requireAuth().currentUser;
       if (!currentUser) {
         throw new Error("No authenticated user found");
       }
 
-      // Anonymous users have no credential to re-authenticate with; their live
-      // ID token is the strongest proof available.
-      if (!currentUser.isAnonymous) {
-        await reauthenticateWithPopup(currentUser, googleProvider);
-      }
+      await reauthenticateWithPopup(currentUser, googleProvider);
       const idToken = await currentUser.getIdToken(true);
 
       const serverResult = await deleteUserAccount(idToken);
@@ -259,7 +197,7 @@ export function useFirebaseAuth() {
         // out is the recoverable direction - if the account survived the user
         // signs in again, and if it did not the browser is already correct.
         const [clientOutcome, sessionOutcome] = await Promise.allSettled([
-          firebaseSignOut(auth),
+          signOutClient(),
           deleteSession(),
         ]);
 
@@ -298,7 +236,7 @@ export function useFirebaseAuth() {
       // client session as well. A rejection here must not reach the catch
       // below: that answer carries no flags, which would report the account as
       // still there right after the server confirmed it was deleted.
-      const [clientOutcome] = await Promise.allSettled([firebaseSignOut(auth)]);
+      const [clientOutcome] = await Promise.allSettled([signOutClient()]);
 
       if (clientOutcome.status === "rejected") {
         // Not shown to the user: the deletion itself is reported below, and
@@ -338,9 +276,7 @@ export function useFirebaseAuth() {
     loadingProvider,
     isAuthLoading: loadingProvider !== null,
     signInWithGoogle,
-    signInAnonymously,
     signOut,
-    linkWithGoogle,
     deleteAccount,
   };
 }

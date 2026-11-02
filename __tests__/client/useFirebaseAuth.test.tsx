@@ -9,8 +9,6 @@ import "./setup";
 const firebaseAuth = vi.hoisted(() => ({
   signInWithPopup: vi.fn(),
   signOut: vi.fn(),
-  signInAnonymously: vi.fn(),
-  linkWithPopup: vi.fn(),
   reauthenticateWithPopup: vi.fn(),
 }));
 const client = vi.hoisted(() => ({
@@ -42,7 +40,6 @@ vi.mock("@/lib/utils/useFirebaseErrorHandler", () => ({
 function userWith(overrides: Record<string, unknown> = {}) {
   return {
     uid: "user-1",
-    isAnonymous: false,
     getIdToken: vi.fn().mockResolvedValue("id-token"),
     ...overrides,
   };
@@ -64,7 +61,6 @@ beforeEach(() => {
 
 describe.each([
   ["signInWithGoogle", "google", () => firebaseAuth.signInWithPopup],
-  ["signInAnonymously", "anonymous", () => firebaseAuth.signInAnonymously],
 ] as const)("%s", (method, providerKey, entryPoint) => {
   it("exchanges the ID token for a session and refreshes the page", async () => {
     entryPoint().mockResolvedValue(credentialFor());
@@ -217,87 +213,6 @@ describe("signOut", () => {
   });
 });
 
-describe("linkWithGoogle", () => {
-  it("refuses when nobody is signed in", async () => {
-    const { result } = renderHook(() => useFirebaseAuth());
-
-    let outcome: { success: boolean; error?: string } | undefined;
-    await act(async () => {
-      outcome = await result.current.linkWithGoogle();
-    });
-
-    expect(outcome).toEqual({
-      success: false,
-      error: "No authenticated user found",
-    });
-    expect(firebaseAuth.linkWithPopup).not.toHaveBeenCalled();
-  });
-
-  it("links, forces a fresh token, and updates the session", async () => {
-    const user = userWith();
-    client.auth.currentUser = user;
-    firebaseAuth.linkWithPopup.mockResolvedValue(credentialFor(user));
-    const { result } = renderHook(() => useFirebaseAuth());
-
-    await act(async () => {
-      await expect(result.current.linkWithGoogle()).resolves.toEqual({
-        success: true,
-      });
-    });
-
-    expect(firebaseAuth.linkWithPopup).toHaveBeenCalledWith(
-      user,
-      client.googleProvider
-    );
-    // `true` forces a refresh so the token carries the new provider.
-    expect(user.getIdToken).toHaveBeenCalledWith(true);
-    expect(router.refresh).toHaveBeenCalled();
-    expect(notify.showSuccessMessage).toHaveBeenCalledWith(
-      "Account successfully linked."
-    );
-  });
-
-  it("warns but keeps the link when the server does not update the session", async () => {
-    // The account is linked whatever the server answers, and the existing
-    // cookie still covers the same uid - so this is a warning, not an error.
-    const user = userWith();
-    client.auth.currentUser = user;
-    firebaseAuth.linkWithPopup.mockResolvedValue(credentialFor(user));
-    authService.sendTokenToServer.mockResolvedValue({
-      success: false,
-      error: "Account linked, but the session was not updated.",
-    });
-    const { result } = renderHook(() => useFirebaseAuth());
-
-    await act(async () => {
-      await result.current.linkWithGoogle();
-    });
-
-    expect(router.refresh).toHaveBeenCalled();
-    expect(notify.showWarningMessage).toHaveBeenCalledWith(
-      "Account linked, but the session was not updated."
-    );
-    expect(notify.showFirebaseError).not.toHaveBeenCalled();
-  });
-
-  it("reports a failure from the link popup", async () => {
-    client.auth.currentUser = userWith();
-    firebaseAuth.linkWithPopup.mockRejectedValue({
-      code: "auth/credential-already-in-use",
-    });
-    const { result } = renderHook(() => useFirebaseAuth());
-
-    let outcome: { success: boolean } | undefined;
-    await act(async () => {
-      outcome = await result.current.linkWithGoogle();
-    });
-
-    expect(outcome?.success).toBe(false);
-    expect(notify.showFirebaseError).toHaveBeenCalled();
-    expect(authService.sendTokenToServer).not.toHaveBeenCalled();
-  });
-});
-
 describe("deleteAccount", () => {
   it("refuses when nobody is signed in", async () => {
     const { result } = renderHook(() => useFirebaseAuth());
@@ -335,26 +250,8 @@ describe("deleteAccount", () => {
     );
   });
 
-  it("skips re-authentication for an anonymous user", async () => {
-    // They have no credential to re-authenticate with; a freshly minted token
-    // is the strongest proof available.
-    const user = userWith({ isAnonymous: true });
-    client.auth.currentUser = user;
-    const { result } = renderHook(() => useFirebaseAuth());
-
-    await act(async () => {
-      await expect(result.current.deleteAccount()).resolves.toEqual({
-        success: true,
-      });
-    });
-
-    expect(firebaseAuth.reauthenticateWithPopup).not.toHaveBeenCalled();
-    expect(user.getIdToken).toHaveBeenCalledWith(true);
-    expect(authService.deleteUserAccount).toHaveBeenCalledWith("id-token");
-  });
-
   it("keeps the client session when the server refuses to delete", async () => {
-    const user = userWith({ isAnonymous: true });
+    const user = userWith();
     client.auth.currentUser = user;
     authService.deleteUserAccount.mockResolvedValue({
       success: false,
@@ -373,13 +270,13 @@ describe("deleteAccount", () => {
     expect(notify.showFirebaseError).toHaveBeenCalled();
   });
 
-  it("signs out anyway when the account is gone but its notes are not", async () => {
-    const user = userWith({ isAnonymous: true });
+  it("signs out anyway when the account is gone but its data is not", async () => {
+    const user = userWith();
     client.auth.currentUser = user;
     authService.deleteUserAccount.mockResolvedValue({
       success: false,
       accountDeleted: true,
-      error: "Account deleted, but some of its notes could not be removed.",
+      error: "Account deleted, but some of its data could not be removed.",
     });
     const { result } = renderHook(() => useFirebaseAuth());
 
@@ -387,14 +284,14 @@ describe("deleteAccount", () => {
       await expect(result.current.deleteAccount()).resolves.toEqual({
         success: false,
         accountDeleted: true,
-        error: "Account deleted, but some of its notes could not be removed.",
+        error: "Account deleted, but some of its data could not be removed.",
       });
     });
 
     expect(firebaseAuth.signOut).toHaveBeenCalledWith(client.auth);
     expect(router.refresh).toHaveBeenCalled();
     expect(notify.showWarningMessage).toHaveBeenCalledWith(
-      "Account deleted, but some of its notes could not be removed."
+      "Account deleted, but some of its data could not be removed."
     );
     expect(notify.showSuccessMessage).not.toHaveBeenCalled();
   });
@@ -402,7 +299,7 @@ describe("deleteAccount", () => {
   it("still reports the account as gone when the client sign-out fails", async () => {
     // Falling into the catch would answer with neither flag, which reads as
     // "the account is still there" - and the server just said it is not.
-    client.auth.currentUser = userWith({ isAnonymous: true });
+    client.auth.currentUser = userWith();
     firebaseAuth.signOut.mockRejectedValue({
       code: "auth/network-request-failed",
     });
@@ -424,7 +321,7 @@ describe("deleteAccount", () => {
   it("ends the session on both sides when the outcome is unknown", async () => {
     // The request may already have deleted the account, and nothing here
     // reconciles that later.
-    const user = userWith({ isAnonymous: true });
+    const user = userWith();
     client.auth.currentUser = user;
     authService.deleteUserAccount.mockResolvedValue({
       success: false,
@@ -448,7 +345,7 @@ describe("deleteAccount", () => {
   it("does not claim the session ended when the server session deletion fails", async () => {
     // deleteSession() resolves { success: false } rather than rejecting, so the
     // warning must not tell the user the session was ended when it was not.
-    const user = userWith({ isAnonymous: true });
+    const user = userWith();
     client.auth.currentUser = user;
     authService.deleteUserAccount.mockResolvedValue({
       success: false,
@@ -476,7 +373,7 @@ describe("deleteAccount", () => {
     // The server cookie is gone, but a rejected client sign-out can leave the
     // Firebase SDK still holding the user, so the warning must not claim the
     // session ended.
-    const user = userWith({ isAnonymous: true });
+    const user = userWith();
     client.auth.currentUser = user;
     authService.deleteUserAccount.mockResolvedValue({
       success: false,
@@ -516,7 +413,7 @@ describe("deleteAccount", () => {
   });
 
   it("clears the in-flight operation afterwards", async () => {
-    client.auth.currentUser = userWith({ isAnonymous: true });
+    client.auth.currentUser = userWith();
     const { result } = renderHook(() => useFirebaseAuth());
 
     await act(async () => {

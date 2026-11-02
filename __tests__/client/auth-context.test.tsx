@@ -10,8 +10,6 @@ import "./setup";
 const firebaseAuth = vi.hoisted(() => ({
   signInWithPopup: vi.fn(),
   signOut: vi.fn(),
-  signInAnonymously: vi.fn(),
-  linkWithPopup: vi.fn(),
   reauthenticateWithPopup: vi.fn(),
 }));
 
@@ -103,9 +101,7 @@ describe("AuthProvider", () => {
     expect(Object.keys(result.current).sort()).toEqual([
       "deleteAccount",
       "isAuthLoading",
-      "linkWithGoogle",
       "loadingProvider",
-      "signInAnonymously",
       "signInWithGoogle",
       "signOut",
     ]);

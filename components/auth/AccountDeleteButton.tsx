@@ -3,16 +3,16 @@
 import { TrashIcon } from "@heroicons/react/24/outline";
 import Loading from "../icons/Loading";
 import { useAuth } from "@/contexts/auth-context";
+import { useLanguage } from "@/contexts/language-context";
 
 export default function AccountDeleteButton() {
   const { loadingProvider, isAuthLoading, deleteAccount } = useAuth();
+  const { t } = useLanguage();
 
   const handleDeleteAccount = async () => {
     // Deleting is irreversible and nothing on the server can undo it.
     if (
-      !window.confirm(
-        "Delete your account permanently? This cannot be undone."
-      )
+      !window.confirm(t("account.deleteConfirm"))
     ) {
       return;
     }
@@ -33,7 +33,7 @@ export default function AccountDeleteButton() {
       ) : (
         <TrashIcon className="h-4.5 w-4.5" aria-hidden="true" />
       )}
-      <span>Delete Account</span>
+      <span>{t("account.delete")}</span>
     </button>
   );
 }

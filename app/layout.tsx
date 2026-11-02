@@ -1,64 +1,87 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Noto_Sans_Sinhala, Noto_Sans_Tamil } from "next/font/google";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/react";
 import { NotificationProvider } from "@/contexts/notification-context";
 import { AuthProvider } from "@/contexts/auth-context";
-import { SITE_OG_IMAGE, SITE_URL } from "@/lib/site";
+import { LanguageProvider } from "@/contexts/language-context";
+import { CartProvider } from "@/contexts/cart-context";
+import { SessionProvider } from "@/contexts/session-context";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import { getServerUser } from "@/lib/firebase/auth-server";
+import { isFirebaseConfigured } from "@/lib/firebase/config";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Fonts are downloaded at build time and served from this site, so the page
+// makes no request to Google Fonts at runtime (NFR-08)
+const latin = Geist({ variable: "--font-latin", subsets: ["latin"] });
+const sinhala = Noto_Sans_Sinhala({
+  variable: "--font-sinhala",
+  subsets: ["sinhala"],
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const tamil = Noto_Sans_Tamil({ variable: "--font-tamil", subsets: ["tamil"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Next.js 16 + Firebase Boilerplate",
-    template: "%s | Next.js Firebase Boilerplate",
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Next.js 16 + Firebase boilerplate with server-side authentication and per-user Firestore data, both reached through the Admin SDK",
-  authors: [{ name: "zeikar", url: "https://github.com/zeikar" }],
-  creator: "zeikar",
+  description: SITE_DESCRIPTION,
   openGraph: {
-    siteName: "Next.js Firebase Boilerplate",
-    locale: "en_US",
+    siteName: SITE_NAME,
+    locale: "en_LK",
     type: "website",
-    images: [
-      {
-        url: SITE_OG_IMAGE,
-        width: 1200,
-        height: 630,
-        alt: "Next.js 16 + Firebase Boilerplate",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    images: [SITE_OG_IMAGE],
   },
 };
 
-export default function RootLayout({
+export const viewport: Viewport = {
+  themeColor: "#166534",
+};
+
+// Every page depends on the session cookie for the header and cart sync
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getServerUser();
+
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${latin.variable} ${sinhala.variable} ${tamil.variable} antialiased`}
       >
-        <NotificationProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </NotificationProvider>
-        <Analytics />
+        <SessionProvider
+          user={
+            user
+              ? {
+                  uid: user.uid,
+                  displayName: user.displayName,
+                  email: user.email,
+                }
+              : null
+          }
+          accountsEnabled={isFirebaseConfigured()}
+        >
+          <NotificationProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                <CartProvider uid={user?.uid ?? null}>
+                  <div className="flex min-h-screen flex-col">
+                    <Header />
+                    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+                      {children}
+                    </main>
+                    <Footer />
+                  </div>
+                </CartProvider>
+              </AuthProvider>
+            </LanguageProvider>
+          </NotificationProvider>
+        </SessionProvider>
       </body>
     </html>
   );

@@ -1,23 +1,21 @@
 /**
  * @vitest-environment jsdom
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AccountDeleteButton from "@/components/auth/AccountDeleteButton";
-import AccountUpgradeButton from "@/components/auth/AccountUpgradeButton";
 import AuthButtons from "@/components/auth/AuthButtons";
 import AuthModal from "@/components/modals/AuthModal";
 import type { AuthOperation } from "@/lib/firebase/useFirebaseAuth";
+import { renderWithLanguage as render } from "./render";
 import "./setup";
 
 const auth = vi.hoisted(() => ({
   loadingProvider: null as AuthOperation,
   isAuthLoading: false,
   signInWithGoogle: vi.fn(),
-  signInAnonymously: vi.fn(),
   signOut: vi.fn(),
-  linkWithGoogle: vi.fn(),
   deleteAccount: vi.fn(),
 }));
 
@@ -33,16 +31,15 @@ const signedInUser = {
   email: "user@example.com",
   displayName: "Example User",
   photoURL: null,
-  isAnonymous: false,
 };
+
+const modalTitle = () => screen.queryByRole("heading", { name: "Sign in" });
 
 beforeEach(() => {
   vi.clearAllMocks();
   busyWith(null);
   auth.signInWithGoogle.mockResolvedValue({ success: true });
-  auth.signInAnonymously.mockResolvedValue({ success: true });
   auth.signOut.mockResolvedValue({ success: true });
-  auth.linkWithGoogle.mockResolvedValue({ success: true });
   auth.deleteAccount.mockResolvedValue({ success: true });
 });
 
@@ -58,11 +55,11 @@ describe("AuthButtons", () => {
   it("opens the sign-in modal for a signed-out visitor", async () => {
     render(<AuthButtons user={null} />);
 
-    expect(screen.queryByText("Sign In Options")).not.toBeInTheDocument();
+    expect(modalTitle()).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(await screen.findByText("Sign In Options")).toBeInTheDocument();
+    await waitFor(() => expect(modalTitle()).toBeInTheDocument());
   });
 
   it("disables sign-out while any operation is running", () => {
@@ -73,7 +70,7 @@ describe("AuthButtons", () => {
   });
 
   it("disables sign-in while any operation is running", () => {
-    busyWith("anonymous");
+    busyWith("delete");
     render(<AuthButtons user={null} />);
 
     expect(screen.getByRole("button", { name: /sign in/i })).toBeDisabled();
@@ -101,35 +98,19 @@ describe("AccountDeleteButton", () => {
     expect(auth.deleteAccount).toHaveBeenCalledTimes(1);
   });
 
-  it("warns that the action cannot be undone", async () => {
+  it("warns that the action cannot be undone and removes saved data", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<AccountDeleteButton />);
 
     await userEvent.click(screen.getByRole("button"));
 
     expect(confirm.mock.calls[0][0]).toMatch(/cannot be undone/i);
+    expect(confirm.mock.calls[0][0]).toMatch(/orders and plans/i);
   });
 
   it("is disabled while another operation is running", () => {
-    busyWith("link");
+    busyWith("signout");
     render(<AccountDeleteButton />);
-
-    expect(screen.getByRole("button")).toBeDisabled();
-  });
-});
-
-describe("AccountUpgradeButton", () => {
-  it("links the anonymous account with Google", async () => {
-    render(<AccountUpgradeButton />);
-
-    await userEvent.click(screen.getByRole("button"));
-
-    expect(auth.linkWithGoogle).toHaveBeenCalledTimes(1);
-  });
-
-  it("is disabled while another operation is running", () => {
-    busyWith("delete");
-    render(<AccountUpgradeButton />);
 
     expect(screen.getByRole("button")).toBeDisabled();
   });
@@ -139,58 +120,51 @@ describe("AuthModal", () => {
   it("renders nothing while closed", () => {
     render(<AuthModal isOpen={false} onClose={vi.fn()} />);
 
-    expect(screen.queryByText("Sign In Options")).not.toBeInTheDocument();
+    expect(modalTitle()).not.toBeInTheDocument();
   });
 
-  it("offers both ways in", () => {
+  it("offers Google sign-in only", () => {
     render(<AuthModal isOpen onClose={vi.fn()} />);
 
     expect(
       screen.getByRole("button", { name: /sign in with google/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /continue as guest/i })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /guest/i })).not.toBeInTheDocument();
   });
 
-  it.each([
-    [/sign in with google/i, "signInWithGoogle"],
-    [/continue as guest/i, "signInAnonymously"],
-  ] as const)("closes after %s succeeds", async (name, method) => {
+  it("closes after Google sign-in succeeds", async () => {
     const onClose = vi.fn();
     render(<AuthModal isOpen onClose={onClose} />);
 
-    await userEvent.click(screen.getByRole("button", { name }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /sign in with google/i })
+    );
 
-    expect(auth[method]).toHaveBeenCalledTimes(1);
+    expect(auth.signInWithGoogle).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
-  it.each([
-    [/sign in with google/i, "signInWithGoogle"],
-    [/continue as guest/i, "signInAnonymously"],
-  ] as const)("stays open when %s fails, so the user can retry", async (name, method) => {
-    auth[method].mockResolvedValue({ success: false, error: "nope" });
+  it("stays open when sign-in fails, so the user can retry", async () => {
+    auth.signInWithGoogle.mockResolvedValue({ success: false, error: "nope" });
     const onClose = vi.fn();
     render(<AuthModal isOpen onClose={onClose} />);
 
-    await userEvent.click(screen.getByRole("button", { name }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /sign in with google/i })
+    );
 
-    await waitFor(() => expect(auth[method]).toHaveBeenCalled());
+    await waitFor(() => expect(auth.signInWithGoogle).toHaveBeenCalled());
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText("Sign In Options")).toBeInTheDocument();
+    expect(modalTitle()).toBeInTheDocument();
   });
 
-  it("disables both options while one is running", () => {
+  it("disables the button and spins while signing in", () => {
     busyWith("google");
     render(<AuthModal isOpen onClose={vi.fn()} />);
 
-    expect(
-      screen.getByRole("button", { name: /sign in with google/i })
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: /continue as guest/i })
-    ).toBeDisabled();
+    const button = screen.getByRole("button", { name: /sign in with google/i });
+    expect(button).toBeDisabled();
+    expect(button).toContainElement(screen.getByTestId("loading-spinner"));
   });
 
   it("closes on the dismiss button", async () => {
@@ -221,31 +195,9 @@ describe("loading indicators", () => {
     expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
     unmount();
 
-    busyWith("link");
+    busyWith("signout");
     render(<AccountDeleteButton />);
     expect(screen.queryByTestId("loading-spinner")).not.toBeInTheDocument();
-  });
-
-  it("AccountUpgradeButton spins only while linking", () => {
-    busyWith("link");
-    const { unmount } = render(<AccountUpgradeButton />);
-    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
-    unmount();
-
-    busyWith("delete");
-    render(<AccountUpgradeButton />);
-    expect(screen.queryByTestId("loading-spinner")).not.toBeInTheDocument();
-  });
-
-  it("AuthModal spins on the running option only", () => {
-    busyWith("google");
-    render(<AuthModal isOpen onClose={vi.fn()} />);
-
-    // One spinner, and it belongs to the Google button.
-    expect(screen.getAllByTestId("loading-spinner")).toHaveLength(1);
-    expect(
-      screen.getByRole("button", { name: /sign in with google/i })
-    ).toContainElement(screen.getByTestId("loading-spinner"));
   });
 });
 
@@ -254,12 +206,10 @@ describe("the sign-in modal's lifecycle", () => {
     render(<AuthButtons user={null} />);
 
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-    expect(await screen.findByText("Sign In Options")).toBeInTheDocument();
+    await waitFor(() => expect(modalTitle()).toBeInTheDocument());
 
     await userEvent.click(screen.getByRole("button", { name: /close/i }));
 
-    await waitFor(() =>
-      expect(screen.queryByText("Sign In Options")).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(modalTitle()).not.toBeInTheDocument());
   });
-})
+});

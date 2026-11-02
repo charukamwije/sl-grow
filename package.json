@@ -1,5 +1,5 @@
 {
-  "name": "nextjs",
+  "name": "sl_grow",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -18,8 +18,7 @@
   "dependencies": {
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
-    "@vercel/analytics": "^2.0.1",
-    "firebase": "^12.0.0",
+    "firebase": "^12.19.0",
     "firebase-admin": "^14.3.0",
     "next": "16.3.3",
     "react": "19.2.8",

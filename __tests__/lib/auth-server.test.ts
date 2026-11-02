@@ -39,7 +39,6 @@ describe("getServerUser", () => {
       email: "user@example.com",
       displayName: "Example User",
       photoURL: "https://example.com/avatar.png",
-      isAnonymous: false,
     });
   });
 

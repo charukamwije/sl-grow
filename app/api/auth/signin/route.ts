@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
 
     // A two week session must come from a sign-in that just happened, so a
     // stolen ID token cannot be traded up for a long-lived session. Re-minting
-    // for a uid that already holds a valid session (the anonymous -> Google
-    // upgrade refreshes its cookie) grants no new access, so it is exempt.
+    // for a uid that already holds a valid session (signing in again as the
+    // same user) grants no new access, so it is exempt.
     if (
       !isRecent(decodedToken.auth_time) &&
       (await getSessionUid()) !== decodedToken.uid

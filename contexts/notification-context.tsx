@@ -107,7 +107,7 @@ const NotificationContainer: React.FC<NotificationContainerProps> = ({
   onRemoveNotification,
 }) => {
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4">
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}

@@ -1,253 +1,154 @@
-# Next.js 16 + Firebase Boilerplate
+# Home Veggie Shop & Planner
 
-![Next.js + Firebase](public/repository-open-graph-template.png)
+A web app for Sri Lankan households that want to grow vegetables at home. It works out what a family eats, what that costs at the market, what fits in their space, what to buy, and what they save. Customers buy seedlings, containers and supplies and send the order to the shop on WhatsApp. It has step-by-step grow guides, works in English, Sinhala and Tamil, and has a Plantation section that estimates the return on planting Ceylon cinnamon or tea.
 
-Next.js 16 + Firebase boilerplate with server-side authentication and per-user Firestore data, both reached through the Admin SDK. Sign-in exchanges an ID token for an httpOnly session cookie the server verifies; the client never touches Firestore.
+The full requirements are in [docs/SRS.md](docs/SRS.md).
 
 ## Features
 
-### Authentication Features
+- **Planner** (`/`): four steps covering home, vegetables, amounts and prices. The results show consumption, market cost, a grow plan that fills the space by value per sq ft, a shopping list at shop prices, savings with payback time, and health notes.
+- **Shop** (`/shop`): about 50 products in 7 categories, with search and product codes (e.g. `F-COMPOST`).
+- **Cart and checkout** (`/cart`): the cart is kept on the device. Checkout opens WhatsApp with a pre-filled English order message.
+- **Grow guides** (`/guides`): package arrival, soil preparation, and one guide for each of 11 vegetables, with figures and an Add button for each recommended product.
+- **Plantation** (`/plantation`): Cinnamon or Tea, entered in hectares or acres. Shows setup cost, payback year, NPV, IRR, break-even price, workers needed and a yearly money table. Every assumption can be edited, and you can send an enquiry on WhatsApp.
+- **Accounts** (`/account`, optional): Google sign-in. Signed-in customers get a cloud cart that is merged across devices, plus order history and saved plans.
+- **Languages**: English, සිංහල and தமிழ் for everything except the Plantation section, which is English only for now. WhatsApp orders are always in English.
 
-- ✅ Server Side Authentication
-- ✅ Sign In (Google + Anonymous)
-- ✅ Upgrade Account (Anonymous → Google)
-- ✅ Delete Account
+## Getting started
 
-### Technical Features
-
-- ✅ Next.js 16 (App Router)
-- ✅ TypeScript Support
-- ✅ Tailwind CSS Styling
-- ✅ SEO Optimized
-- ✅ Responsive Design
-- ✅ Notification System
-- ✅ Firestore (server-side, per-user)
-- ✅ Vercel Analytics
-- ✅ Tested with Vitest, verified in CI
-
-## Demo
-
-[Live Demo](https://nextjs-firebase-starter.vercel.app/)
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 24 or later. `engines` asks for `>=24.0.0` and CI builds on 24, so Vercel deploys on 24.x.
-- Firebase account with a project created
-- Firebase Admin SDK credentials
-
-## Firebase Setup
-
-### Step 1: Create a Firebase Project
-
-1. Go to the [Firebase Console](https://console.firebase.google.com/)
-2. Click "Add project"
-3. Follow the setup instructions
-
-### Step 2: Enable Authentication
-
-1. In your Firebase project console, go to "Authentication"
-2. Click "Get started"
-3. Enable Google and Anonymous sign-in methods
-
-### Step 3: Create the Firestore Database
-
-1. In your Firebase project console, go to "Databases & Storage" > "Firestore"
-2. Click "Create database"
-3. Choose "Standard edition", then "Next"
-4. Keep the Database ID as `(default)`, pick a location, then "Next"
-5. Start in **production mode**, then "Create"
-
-Production mode denies every read and write from web and mobile clients while still allowing authenticated application servers - which is exactly this boilerplate's shape, and what `firestore.rules` here already encodes.
-
-This step is required, not optional. A signed-out visitor never touches Firestore, so the page still renders - but the moment anyone signs in, the notes query hits a database that is not there and the whole page fails rather than hiding the misconfiguration. See [Per-User Firestore Data](#per-user-firestore-data) for why it fails loudly by design.
-
-### Step 4: Generate Admin SDK Credentials
-
-1. In your Firebase project settings, go to "Service accounts"
-2. Click "Generate new private key"
-3. Save the JSON file and use its contents for the `FIREBASE_ADMIN_SERVICE_ACCOUNT` environment variable
-
-### Step 5: Get Web SDK Configuration
-
-1. In your Firebase project settings, go to "General"
-2. Under "Your apps", click the web app (create one if needed)
-3. Copy the values into `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG`, as JSON
-
-The console shows a JavaScript snippet (`const firebaseConfig = { apiKey: ... }`) with unquoted keys. The variable is read with `JSON.parse`, so copy only the object, quote every key, and drop the `const` and any trailing comma - `.env.local.example` shows the exact shape.
-
-### Environment Variables
-
-Copy the example file and fill in your own values:
-
-```bash
-cp .env.local.example .env.local
-```
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `FIREBASE_ADMIN_SERVICE_ACCOUNT` | yes | Service account JSON from Step 4. Verifies sessions, manages users, and is also what reaches Firestore, so it needs Firestore access in the project |
-| `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG` | yes | Web app config from Step 5, used by the browser SDK |
-| `SITE_URL` | no | Public URL of the deployment, used for metadata, `robots.txt` and the sitemap. Falls back to the Vercel production domain, then `http://localhost:3000` |
-
-> **IMPORTANT**: both values must be a **single physical line** of JSON. This is not the same as removing every `\n`: `private_key` legitimately contains `\n` escape sequences inside its string, and they must survive. A real line break in the file is what breaks parsing. `jq -c . service-account.json` produces the right shape from a downloaded key file.
-
-## Installation
-
-1. Clone the repository
-
-```bash
-git clone https://github.com/zeikar/nextjs-firebase-boilerplate.git
-cd nextjs-firebase-boilerplate
-```
-
-2. Install dependencies
+Requirements: Node.js 24 or later (`engines` asks for `>=24.0.0`).
 
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
-# or
-bun install
-```
-
-3. Run the development server
-
-```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. With no Firebase settings the app runs in **guest mode**: the planner, shop, cart, checkout, guides and plantation all work, and the Account page says accounts are not set up.
 
-Other scripts: `npm test` (run the test suite), `npm run test:watch` (re-run on change), `npm run test:coverage` (coverage report), `npm run lint` (ESLint), `npm run build` (production build), `npm start` (serve the build).
+Other scripts: `npm test`, `npm run test:watch`, `npm run test:coverage`, `npm run lint`, `npm run build`, `npm start`.
 
-## Project Structure
+## Before going live
+
+1. **Set the shop's WhatsApp number** in [lib/shop-config.ts](lib/shop-config.ts) (`OWNER_WHATSAPP`). Use international format without `+` or spaces, e.g. `94771234567`. While it is still the placeholder, the cart and plantation pages show a warning, and orders go nowhere.
+2. **Check every price, yield and growing time** in `lib/data/` with local growers and suppliers (SRS OI-01).
+3. **Have the Sinhala and Tamil text reviewed** (OI-05) in `lib/i18n/strings.ts` and the data files.
+4. **Validate the plantation figures** in [lib/data/plantation.ts](lib/data/plantation.ts) (OI-19). They are placeholders.
+
+## Editing products, vegetables and guides
+
+All content lives in plain data files that hold no logic (NFR-10):
+
+| File | What it holds |
+| --- | --- |
+| `lib/data/products.ts` | Product catalogue, the shared supplies added to every plan, and which container each plant size gets |
+| `lib/data/vegetables.ts` | Vegetable planning data: price, weekly use, yield, cycles, space, days to harvest, climber or not |
+| `lib/data/guides.ts` | Grow guide steps. Writing `[[product_id]]` in a step shows that product's name and code |
+| `lib/data/plantation.ts` | Cinnamon and tea assumptions and growing steps |
+| `lib/i18n/strings.ts` | Interface text in the three languages |
+
+A product's customer-facing code comes from its ID (BR-19): `f_compost` becomes `F-COMPOST`. Changing an ID therefore changes its code.
+
+## Accounts (optional): Firebase setup
+
+Accounts need a Firebase project. Without one, everything except accounts still works.
+
+1. **Create a project** in the [Firebase console](https://console.firebase.google.com/).
+2. **Enable Google sign-in**: Authentication > Get started > Sign-in method > Google.
+3. **Create the Firestore database**: Databases & Storage > Firestore > Create database > Standard edition > keep the ID `(default)` > choose a location > start in **production mode**. Production mode denies all browser access, which is what this app wants, because only the server talks to Firestore. Once accounts are configured, the first sign-in fails loudly if the database is missing.
+4. **Service account**: Project settings > Service accounts > Generate new private key.
+5. **Web app config**: Project settings > General > Your apps > add a web app and copy its config.
+6. **Environment variables**: copy `.env.local.example` to `.env.local` and fill in:
+
+| Variable | Purpose |
+| --- | --- |
+| `FIREBASE_ADMIN_SERVICE_ACCOUNT` | Service account JSON from step 4. Verifies sessions and reads and writes Firestore |
+| `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG` | Web config from step 5, used by the browser for the Google popup |
+| `SITE_URL` | Optional. Public URL used in metadata and the sitemap |
+
+Both JSON values must each be on a **single physical line**. Keep the `\n` escapes inside `private_key`; only real line breaks break parsing. Running `jq -c . key.json` gives the right shape. The console shows the web config as JavaScript with unquoted keys: quote every key and drop the `const` and any trailing comma.
+
+Set both variables, or neither. Accounts are switched on only when both are present.
+
+7. **Authorized domains**: add every domain the app is served from (your production domain and `localhost`) under Authentication > Settings > Authorized domains. Otherwise the Google popup fails with `auth/unauthorized-domain`.
+8. **Deploy the rules**: paste `firestore.rules` (deny all) into the Firestore Rules tab, or use `firebase deploy --only firestore:rules`.
+
+### How customer data is stored
+
+Only the server reads and writes Firestore, through the Admin SDK. The browser never imports `firebase/firestore`. Each customer's data sits under their own user document:
 
 ```
-app/                       - Next.js App Router
-  layout.tsx               - Root layout, notification + auth providers
-  page.tsx                 - Homepage
-  robots.ts, sitemap.ts    - SEO routes
-  globals.css              - Tailwind entry point
-  api/auth/
-    signin/                - Exchanges an ID token for a session cookie
-    signout/               - Revokes the session and clears the cookie
-    user/                  - Reads the current user, deletes the account
-  api/notes/               - Create and delete the signed-in user's notes
+users/{uid}/meta/cart      cloud cart: { items: { productId: qty } }
+users/{uid}/orders/{id}    orders sent while signed in (name, phone, method, address, notes, items, total)
+users/{uid}/plans/{id}     saved planner results (people, space, choices, shopping list, total)
+```
+
+Every route takes the uid from the verified session cookie, never from the request, so a customer can only reach their own data (FR-A-11). Order prices are recomputed from the catalogue on the server, and so are saved plan totals. Customers cannot edit or delete orders or plans in the app (FR-A-12); shop staff see them in the Firebase console (use a collection-group view on `orders`). Ordering by `createdAt` happens within each customer's own collection, so no composite index is needed.
+
+A guest's checkout details go only into the WhatsApp message and are never sent to the server.
+
+**Cart sync**: on sign-in or page load, the device cart is merged into the cloud cart, keeping the larger quantity of each product (BR-20). After that, each change is saved. Signing out leaves the device cart in place. Because of this rule, an item removed on one device can come back from another device's cart.
+
+**Account deletion** removes the Google account and then the customer's whole `users/{uid}` tree, including their orders. The shop already has each order in WhatsApp, but decide on a retention rule before going live (OI-16).
+
+### Session security
+
+These rules come from the original boilerplate and are unchanged:
+
+- Sign-in swaps a Firebase ID token for a 2-week `httpOnly` session cookie, and only if the sign-in happened in the last 5 minutes.
+- Every state-changing route rejects cross-site requests (`Origin` check plus a JSON content type).
+- Signing out revokes the user's sessions on every device.
+- Deleting an account needs a fresh Google re-authentication.
+
+## Project structure
+
+```
+app/
+  page.tsx                 Planner
+  shop/, cart/, guides/, plantation/, account/
+  api/auth/                Sign in, sign out, current user and account deletion
+  api/cart/                Cloud cart read/replace; cart/merge on sign-in
+  api/orders/, api/plans/  Save an order / a plan (create only)
 components/
-  auth/                    - Sign in/out, upgrade and delete controls
-  icons/                   - Icon components
-  modals/AuthModal.tsx     - Sign-in modal
-  notifications/           - Notification item
-  notes/                   - Notes list/form (client) and the server-side reader
+  planner/, shop/, cart/, guides/, plantation/, account/, layout/, ui/
 contexts/
-  auth-context.tsx         - Single auth state for the whole app
-  notification-context.tsx - Notification state and container
+  language-context.tsx     Current language and t()
+  cart-context.tsx         Device cart (localStorage key hvs_cart) and cloud sync
+  session-context.tsx      The server-verified user, for client components
+  auth-context.tsx         Google sign-in, sign-out, delete
+  notification-context.tsx Toast messages
 lib/
-  firebase/
-    admin.ts               - Firebase Admin SDK setup
-    auth-server.ts         - Session verification for server code
-    authService.ts         - Client calls to the auth API routes
-    client.ts              - Firebase Web SDK setup
-    notes.ts               - Per-user notes subcollection and Note type
-    session.ts             - Cookie name, lifetime, freshness rule
-    useFirebaseAuth.ts     - Auth operations and loading state
-  utils/
-    firebaseErrors.ts      - Error classification and messages
-    request-origin.ts      - Same-origin guard for the state-changing routes
-    useFirebaseErrorHandler.ts
-  site.ts                  - Public site URL
-public/                    - Static files
-firestore.rules            - Deny-all Firestore security rules
-__tests__/
-  helpers/                 - Shared test doubles
-  stubs/                   - Module stand-ins for the test resolver
-  lib/                     - Pure units: guards, session rules, error mapping
-  api/                     - Auth and notes routes, with the Admin SDK mocked
-  client/                  - Hooks, contexts and components, under jsdom
-.github/workflows/         - Lint, test and build on push and PR
+  data/                    Products, vegetables, guides, plantation (content only)
+  i18n/                    UI strings and translation helpers
+  planner/calc.ts          Planner calculations (BR-01 to BR-18)
+  plantation/calc.ts       Cash flows, NPV, IRR, payback, break-even
+  order/whatsapp.ts        Checkout validation and WhatsApp messages
+  products.ts              Product codes, prices, cart helpers
+  firebase/                Admin and web SDKs, sessions, per-user Firestore paths
+  shop-config.ts           The shop's WhatsApp number
+__tests__/                 Vitest: lib/ units, api/ routes, client/ components
+docs/SRS.md                Requirements
 ```
 
-## Key Features
+## Deploying to Vercel
 
-### Server-Side Authentication
+Vercel detects Next.js and needs no build settings. `vercel.json` only pins the server functions (sign-in, cart sync, orders, plans) to `bom1`, which is Mumbai and the closest region to Sri Lanka. For the lowest latency, create the Firestore database in `asia-south1` (Mumbai) to match. If your database is somewhere else, change the region in `vercel.json` to the one nearest it.
 
-Sign-in exchanges a Firebase ID token for an `httpOnly` session cookie (2 weeks), which server components and route handlers verify with the Admin SDK. `getServerUser()` returns the current user for rendering; `getServerSession()` additionally distinguishes an unusable cookie from a Firebase outage, so a route handler can answer `503` instead of claiming the caller is signed out.
+1. **Push to your own GitHub repository.** Create an empty repo, then:
+   ```bash
+   git remote set-url origin https://github.com/<you>/sl_grow.git
+   git push -u origin main
+   ```
+2. **Import it** at [vercel.com/new](https://vercel.com/new). Keep the detected defaults (Framework: Next.js, build command `next build`).
+3. **Environment variables** (Project > Settings > Environment Variables, for Production and Preview). Paste each value exactly as it appears in `.env.local`, on one line:
+   - `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG`
+   - `FIREBASE_ADMIN_SERVICE_ACCOUNT`. This is secret: keep it out of git and out of anything public.
 
-### Session Security
+   Leave both unset to deploy in guest mode, without accounts. `SITE_URL` is not needed: the production domain is picked up from `VERCEL_PROJECT_PRODUCTION_URL`. `NEXT_PUBLIC_` values are built into the page, so **redeploy** after changing one.
+4. **Deploy.** After that, every push to `main` redeploys production, and pull requests get preview URLs.
+5. **Authorize the domain in Firebase**: add `<project>.vercel.app`, and any custom domain, under Authentication > Settings > Authorized domains. Otherwise Google sign-in fails with `auth/unauthorized-domain`. Preview URLs change on every deploy, so test sign-in on the production domain, or add a preview domain while you test it.
 
-The auth routes assume a hostile caller:
-
-- **Same-origin only** - the state-changing routes (sign-in, sign-out, delete) reject requests whose `Origin` does not match the deployment; sign-in and deletion additionally require a JSON content type, so a cross-site form cannot sign a victim into an attacker's account.
-- **Fresh tokens only** - a session cookie is minted only from an ID token whose sign-in happened in the last 5 minutes, so a leaked ID token cannot be traded for a two-week session. Re-minting is exempt when the browser already holds a valid session for the same user, which is what the anonymous -> Google upgrade does: it grants no access the caller does not already have.
-- **Sign-out revokes everywhere** - signing out calls `revokeRefreshTokens`, which invalidates every session of that user on every device. Firebase cannot revoke a single session cookie, so a copied cookie would otherwise stay valid; if revocation fails the API reports it instead of claiming success.
-- **Deletion needs re-authentication** - deleting an account requires a confirmation and a freshly minted ID token (a Google popup re-auth for permanent accounts), because Admin-side deletion bypasses Firebase's own `requires-recent-login` rule. It also attempts to remove that user's notes - see [Per-User Firestore Data](#per-user-firestore-data) for what happens when that does not finish.
-
-`GET /api/auth/user` is included as a worked example of a protected route handler; the UI itself reads the user on the server.
-
-### Authentication Modal
-
-A ready-to-use authentication modal that supports Google Sign-in and Anonymous authentication, with the ability to upgrade anonymous accounts to permanent ones.
-
-### Firebase Error Handling
-
-Built-in error handling for Firebase authentication with user-friendly error messages.
-
-### Notification System
-
-A contextual notification system to display success/error messages to users.
-
-### Per-User Firestore Data
-
-Notes live at `users/{uid}/notes`. `userNotes(uid)` builds a path for whatever uid it is handed, so the layout enforces nothing on its own - ownership rests on every caller passing the uid from the verified session cookie, never one from a request body or a path segment. A server component reads with the Admin SDK; `app/api/notes/route.ts` writes behind `rejectCrossSiteRequest`, the same guard the auth routes use. The client never imports `firebase/firestore`.
-
-Deleting an account removes the Auth user first, then sweeps that user's notes. A failed sweep is reported rather than hidden behind a success, and the user is warned. The server cookie is cleared; the client sign-out is attempted, and a failure there is logged. Notes can still be left behind: a write already past session verification, or a `recursiveDelete` that fails part-way, leaves documents under a uid nobody can authenticate as again. Nothing here reaps them. A Cloud Functions `onDelete` trigger is the usual first step but races that same late write, so guaranteed cleanup needs a durable deletion marker and a reaper.
-
-Note text is capped at 200 characters and trimmed. The note count is not capped and the read is unbounded, so a user's page grows with their own notes; a production app would cap or paginate.
-
-A server-component read that fails on one of four transient statuses - unavailable, deadline exceeded, resource exhausted, internal - renders an "unavailable" line in place of the panel, so a blip costs this section and not the rest of the page. Everything else is rethrown, a missing database included, and no error boundary wraps the section, so a misconfiguration takes the page down where you cannot miss it. Route-handler writes and deletes are not classified this way; they report a generic failure. That is deliberate: a setup error hiding behind a permanent soothing message is worse than one that fails loudly.
-
-`firestore.rules` denies every client read and write. The Admin SDK bypasses rules by design, so they constrain no server code, only the client - and that file becomes the only defense the moment anyone adds client-side Firestore. This repo ships no `firebase.json`, so the rules are not deployed just by living here: paste the file into the Rules tab of the Firebase console, or run `firebase init firestore` and then `firebase deploy --only firestore:rules`.
-
-## Deployment
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new) from the creators of Next.js.
-
-Set `FIREBASE_ADMIN_SERVICE_ACCOUNT` and `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG` in the project's environment variables. `SITE_URL` is optional on Vercel: the production domain is picked up automatically.
-
-Add every domain the app is **served from** to Authentication > Settings > Authorized domains in the Firebase console - the deployment's `.vercel.app` domain, any custom domain, and `localhost` for local development. This is the domain in the browser's address bar, not the project's `authDomain`. Google sign-in, account upgrade and deletion of a Google account all open a popup, and an unlisted domain fails every one of them with `auth/unauthorized-domain`. (Deleting an anonymous account re-authenticates with a fresh ID token instead, so it opens no popup.)
-
-If you forked this repository:
-
-- Delete `public/google*.html` - it verifies the original author's Search Console property, not yours.
-- Supply a Terms of Service and a Privacy Policy, or drop the line promising them. `components/modals/AuthModal.tsx` tells everyone who signs in that they agree to both, and this repository ships neither.
-- Note that social preview images are rendered by `https://dogimg.vercel.app`, an external service this repo does not control (`lib/site.ts`). Point `SITE_OG_IMAGE` at your own asset if you would rather not depend on it.
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Contributing
-
-Contributions are always welcome! Please feel free to submit a Pull Request.
+CI (`.github/workflows/ci.yml`) runs lint, tests and a production build on GitHub for every push and pull request, separately from Vercel's own build.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgements
-
-- [Next.js](https://nextjs.org/)
-- [Firebase](https://firebase.google.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-
----
-
-© 2025 Next.js Firebase Boilerplate
+MIT. See [LICENSE](LICENSE). The project started from [zeikar/nextjs-firebase-boilerplate](https://github.com/zeikar/nextjs-firebase-boilerplate).

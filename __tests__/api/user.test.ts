@@ -77,16 +77,15 @@ describe("GET /api/auth/user", () => {
         email: "user@example.com",
         displayName: "Example User",
         photoURL: "https://example.com/avatar.png",
-        isAnonymous: false,
       },
     });
   });
 
-  it("reports an anonymous user as anonymous, with null profile fields", async () => {
+  it("reports missing profile fields as null", async () => {
     givenSessionCookie();
     adminAuth.verifySessionCookie.mockResolvedValue({
-      uid: "anon-1",
-      firebase: { sign_in_provider: "anonymous" },
+      uid: "user-2",
+      firebase: { sign_in_provider: "google.com" },
     });
 
     const response = await GET();
@@ -94,11 +93,10 @@ describe("GET /api/auth/user", () => {
     await expect(response.json()).resolves.toEqual({
       success: true,
       user: {
-        uid: "anon-1",
+        uid: "user-2",
         email: null,
         displayName: null,
         photoURL: null,
-        isAnonymous: true,
       },
     });
   });
@@ -222,22 +220,21 @@ describe("DELETE /api/auth/user", () => {
     expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
   });
 
-  it("sweeps the deleted user's notes, and only once the account is gone", async () => {
+  it("sweeps the deleted user's data, and only once the account is gone", async () => {
     // The route explains why that order is the safe one.
     givenFreshReauth();
 
     const response = await DELETE(deleteRequest());
 
     expect(response.status).toBe(200);
-    expect(firestoreDouble.recursiveDelete).toHaveBeenCalledWith(
-      "users/user-1/notes"
-    );
+    // The whole user document, so the cart, orders and plans go with it
+    expect(firestoreDouble.recursiveDelete).toHaveBeenCalledWith("users/user-1");
     const [deletedAt] = adminAuth.deleteUser.mock.invocationCallOrder;
     const [sweptAt] = firestoreDouble.recursiveDelete.mock.invocationCallOrder;
     expect(sweptAt).toBeGreaterThan(deletedAt);
   });
 
-  it("reports the account as deleted when its notes could not be swept", async () => {
+  it("reports the account as deleted when its data could not be swept", async () => {
     givenFreshReauth();
     firestoreDouble.recursiveDelete.mockRejectedValue(new Error("sweep failed"));
 
@@ -247,11 +244,11 @@ describe("DELETE /api/auth/user", () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       accountDeleted: true,
-      error: "Account deleted, but some of its notes could not be removed.",
+      error: "Account deleted, but some of its data could not be removed.",
     });
     expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
     expect(console.error).toHaveBeenCalledWith(
-      "Account notes deletion error:",
+      "Account data deletion error:",
       expect.any(Error)
     );
   });
@@ -287,27 +284,10 @@ describe("DELETE /api/auth/user", () => {
     expect(adminAuth.deleteUser).not.toHaveBeenCalled();
   });
 
-  it("accepts a just-issued token from an anonymous user", async () => {
-    // Anonymous users have no credential to re-authenticate with, so a fresh
-    // `iat` stands in for a fresh sign-in.
-    givenFreshReauth({
-      auth_time: nowSeconds - 3600,
-      iat: nowSeconds,
-      firebase: { sign_in_provider: "anonymous" },
-    });
-
-    const response = await DELETE(deleteRequest());
-
-    expect(response.status).toBe(200);
-    expect(adminAuth.deleteUser).toHaveBeenCalledWith("user-1");
-  });
-
-  it("refuses a copied anonymous token that was issued too long ago", async () => {
-    givenFreshReauth({
-      auth_time: nowSeconds,
-      iat: nowSeconds - 3600,
-      firebase: { sign_in_provider: "anonymous" },
-    });
+  it("refuses a freshly issued token from an old sign-in", async () => {
+    // A refreshed token gets a new `iat` but keeps the original `auth_time`;
+    // only a just-completed sign-in counts as re-authentication.
+    givenFreshReauth({ auth_time: nowSeconds - 3600, iat: nowSeconds });
 
     const response = await DELETE(deleteRequest());
 
@@ -359,7 +339,7 @@ describe("DELETE /api/auth/user", () => {
       error: "Failed to delete account.",
     });
     expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(true);
-    // Nothing was deleted, so the notes have to survive the retry.
+    // Nothing was deleted, so the data has to survive the retry.
     expect(firestoreDouble.recursiveDelete).not.toHaveBeenCalled();
   });
 });

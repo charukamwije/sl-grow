@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { getServerSession } from "@/lib/firebase/auth-server";
-import { userNotes } from "@/lib/firebase/notes";
+import { userDoc } from "@/lib/firebase/store";
 import { SESSION_COOKIE_NAME, isRecent } from "@/lib/firebase/session";
 import { isRejectedCredentialError } from "@/lib/utils/firebaseErrors";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
@@ -88,15 +88,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Anonymous users have no credential to re-authenticate with, so their
-    // proof is a just-issued token (`getIdToken(true)`) instead of a fresh
-    // sign-in - otherwise an hour-old copied token would be accepted.
-    const isAnonymous = decodedToken.firebase?.sign_in_provider === "anonymous";
-    const provenRecently = isAnonymous
-      ? isRecent(decodedToken.iat)
-      : isRecent(decodedToken.auth_time);
-
-    if (!provenRecently) {
+    // The client re-authenticates with Google first, so the token must come
+    // from a sign-in that just happened - otherwise an hour-old copied token
+    // would be accepted.
+    if (!isRecent(decodedToken.auth_time)) {
       return NextResponse.json(
         { success: false, error: "Re-authentication is required." },
         { status: 401 }
@@ -137,7 +132,7 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  let notesDeleted = true;
+  let dataDeleted = true;
 
   // The Auth user goes first: a failed `deleteUser` leaves everything intact
   // and retryable, and destroying the data of an account that still exists is
@@ -145,21 +140,21 @@ export async function DELETE(request: NextRequest) {
   // because that uid can no longer pass `verifySessionCookie(cookie, true)`,
   // so no new authenticated write can reach the collection.
   //
-  // Notes can still be left behind, and nothing here promises otherwise: a
+  // Data can still be left behind, and nothing here promises otherwise: a
   // request that was already past session verification when `deleteUser`
   // returned can still commit its write, and `recursiveDelete` can delete part
-  // of the collection before rejecting. Either path leaves notes under a uid
+  // of the tree before rejecting. Either path leaves data under a uid
   // nobody can authenticate as again - unreachable through this API and only
   // removable out of band. A production app closes both with a Cloud Functions
-  // `onDelete` trigger on the auth user or a scheduled reaper, which is
-  // outside a boilerplate whose subject is uid-scoped access.
+  // `onDelete` trigger on the auth user or a scheduled reaper.
   try {
-    // Firestore does not cascade, so the subcollection has to be swept
-    // explicitly or it outlives the account forever.
-    await adminDb.recursiveDelete(userNotes(uid));
+    // Firestore does not cascade, so the cart, orders and plans under the
+    // user document have to be swept explicitly or they outlive the account.
+    // Orders go too; the shop already has each one in WhatsApp (OI-16).
+    await adminDb.recursiveDelete(userDoc(uid));
   } catch (error) {
-    console.error("Account notes deletion error:", error);
-    notesDeleted = false;
+    console.error("Account data deletion error:", error);
+    dataDeleted = false;
   }
 
   // Delete session cookie. The failures above keep it because the credential
@@ -167,14 +162,14 @@ export async function DELETE(request: NextRequest) {
   // preserve - not even on the partial-failure 500 below.
   cookieStore.delete(SESSION_COOKIE_NAME);
 
-  if (!notesDeleted) {
+  if (!dataDeleted) {
     // The account is gone either way, so the caller must not be told to retry
     // a deletion that already happened.
     return NextResponse.json(
       {
         success: false,
         accountDeleted: true,
-        error: "Account deleted, but some of its notes could not be removed.",
+        error: "Account deleted, but some of its data could not be removed.",
       },
       { status: 500 }
     );

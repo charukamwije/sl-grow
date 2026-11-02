@@ -140,12 +140,12 @@ describe("POST /api/auth/signin", () => {
   });
 
   it("re-mints for a stale token when this browser already holds that session", async () => {
-    // The anonymous -> Google upgrade refreshes its cookie and grants no new
-    // access, so it is exempt from the freshness rule.
+    // Signing in again as the same user grants no new access, so it is
+    // exempt from the freshness rule.
     cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "existing" });
     adminAuth.verifySessionCookie.mockResolvedValue({
       uid: "user-1",
-      firebase: { sign_in_provider: "anonymous" },
+      firebase: { sign_in_provider: "google.com" },
     });
     adminAuth.verifyIdToken.mockResolvedValue(
       decodedToken({ auth_time: nowSeconds - 3600 })

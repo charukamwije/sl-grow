@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7faf5;
+  --foreground: #1c2a1e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Latin first; the browser falls through to the Sinhala and Tamil fonts
+     for characters the Latin one does not cover */
+  --font-sans: var(--font-latin), var(--font-sinhala), var(--font-tamil),
+    system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Wide tables scroll sideways on small screens instead of breaking the
+   layout (SRS 5.1) */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table {
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table-scroll th,
+.table-scroll td {
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  border-bottom: 1px solid #e3ebe0;
+  white-space: nowrap;
+}
+
+.table-scroll th {
+  font-weight: 600;
+  color: #3f5443;
+  background: #eef4ea;
+}
+
+.table-scroll td.num,
+.table-scroll th.num {
+  text-align: right;
 }

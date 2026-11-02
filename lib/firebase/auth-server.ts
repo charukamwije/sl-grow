@@ -10,7 +10,6 @@ export type ServerUser = {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  isAnonymous: boolean;
 };
 
 /**
@@ -38,7 +37,7 @@ export async function getServerSession(): Promise<ServerSession> {
     // The cookie carries the profile Firebase minted it from, so the user
     // record does not have to be fetched again - `verifySessionCookie` already
     // reads it once to check for revocation. The claims are refreshed whenever
-    // the cookie is re-minted (sign-in, anonymous account upgrade).
+    // the cookie is re-minted at sign-in.
     return {
       state: "valid",
       user: {
@@ -46,7 +45,6 @@ export async function getServerSession(): Promise<ServerSession> {
         email: claims.email ?? null,
         displayName: typeof claims.name === "string" ? claims.name : null,
         photoURL: claims.picture ?? null,
-        isAnonymous: claims.firebase.sign_in_provider === "anonymous",
       },
     };
   } catch (error) {

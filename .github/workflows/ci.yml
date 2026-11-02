@@ -23,10 +23,11 @@ jobs:
 
       - run: npm test
 
-      # `next build` loads the Firebase modules, and both refuse to initialize
-      # without credentials - the Admin SDK parses the private key as it starts.
-      # A throwaway key generated here keeps the build runnable on every fork
-      # without a repository secret; nothing ever authenticates with it.
+      # The app also builds without Firebase credentials (guest mode), but
+      # building with them exercises the accounts configuration too - the
+      # Admin SDK parses the private key as it starts. A throwaway key
+      # generated here does that on every fork without a repository secret;
+      # nothing ever authenticates with it.
       - name: Generate placeholder Firebase credentials
         run: |
           openssl genrsa -out "$RUNNER_TEMP/ci.pem" 2048
