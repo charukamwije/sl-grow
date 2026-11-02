@@ -72,9 +72,40 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
   };
 
   const nothingPlanted = plan.totals.plants === 0;
+  const totalNeed = plan.rows.reduce((sum, row) => sum + row.annualNeedKg, 0);
+  const coverage = totalNeed > 0 ? plan.health.yearlyHarvestKg / totalNeed : 0;
 
   return (
     <div className="space-y-4">
+      {/* The headline numbers first; the detail follows below */}
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-white shadow-lg shadow-emerald-900/10">
+        <p className="text-sm font-medium text-emerald-100">{t("glance")}</p>
+        <p className="mt-1 text-4xl font-bold tracking-tight">
+          {formatLKR(Math.max(0, plan.savings.monthly))}
+          <span className="ml-2 text-base font-medium text-emerald-100">
+            {t("sav.monthly")}
+          </span>
+        </p>
+        <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            [t("sum.plants"), String(plan.totals.plants)],
+            [t("sum.coverage"), `${Math.round(coverage * 100)}%`],
+            [t("sav.setup"), formatLKR(plan.savings.setupCost)],
+            [
+              t("sav.payback"),
+              plan.savings.paybackMonths === null
+                ? "—"
+                : t("months", { n: plan.savings.paybackMonths }),
+            ],
+          ].map(([term, value]) => (
+            <div key={term} className="rounded-2xl bg-white/10 p-3 backdrop-blur">
+              <dt className="text-xs text-emerald-100">{term}</dt>
+              <dd className="mt-0.5 text-lg font-semibold">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
       {/* Consumption and market cost (FR-P-08, FR-P-09) */}
       <section className={card}>
         <h2 className={subheading}>{t("res.consumption")}</h2>
@@ -118,7 +149,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
       <section className={card}>
         <h2 className={subheading}>{t("res.growPlan")}</h2>
         {nothingPlanted ? (
-          <p role="alert" className="rounded-lg bg-amber-50 p-3 text-amber-900">
+          <p role="alert" className="rounded-2xl bg-amber-50 p-3 text-amber-900">
             {t("spaceTooSmall")}
           </p>
         ) : (
@@ -159,7 +190,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
           })}
         </p>
         <details className="mt-3 text-sm">
-          <summary className="cursor-pointer font-medium text-green-800">
+          <summary className="cursor-pointer font-medium text-emerald-700">
             💡 {t("tips.title")}
           </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-700">
@@ -210,14 +241,14 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
                   : t("months", { n: plan.savings.paybackMonths }),
               ],
             ].map(([term, value]) => (
-              <div key={term} className="rounded-lg bg-green-50 p-3">
+              <div key={term} className="rounded-2xl bg-emerald-50 p-3">
                 <dt className="text-xs text-gray-700">{term}</dt>
-                <dd className="text-lg font-bold text-green-900">{value}</dd>
+                <dd className="text-lg font-bold text-gray-900">{value}</dd>
               </div>
             ))}
           </dl>
           <details className="mt-3 text-sm">
-            <summary className="cursor-pointer font-medium text-green-800">
+            <summary className="cursor-pointer font-medium text-emerald-700">
               {t("sav.howTitle")}
             </summary>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-700">

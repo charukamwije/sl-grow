@@ -12,8 +12,11 @@ import {
   waLink,
   type CheckoutDetails,
   type CheckoutError,
+  type CheckoutMethod,
 } from "@/lib/order/whatsapp";
-import { btnPrimary, card, input, label, muted, subheading } from "../ui/styles";
+import Segmented from "../ui/Segmented";
+import TextField from "../ui/TextField";
+import { card, subheading } from "../ui/styles";
 
 const ERROR_KEYS: Record<CheckoutError, StringKey> = {
   nameAndPhone: "err.nameAndPhone",
@@ -82,96 +85,74 @@ export default function CheckoutForm() {
 
   return (
     <form onSubmit={handleSubmit} className={`${card} space-y-4`} noValidate>
-      <h2 className={subheading}>{t("checkout.title")}</h2>
+      <h2 className={`${subheading} !mb-1`}>{t("checkout.title")}</h2>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="checkout-name" className={label}>
-            {t("checkout.name")} *
-          </label>
-          <input
-            id="checkout-name"
-            className={input}
-            value={details.name}
-            onChange={(event) => update("name", event.target.value)}
-            autoComplete="name"
-            maxLength={200}
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="checkout-phone" className={label}>
-            {t("checkout.phone")} *
-          </label>
-          <input
-            id="checkout-phone"
-            type="tel"
-            className={input}
-            value={details.phone}
-            onChange={(event) => update("phone", event.target.value)}
-            autoComplete="tel"
-            maxLength={200}
-            required
-          />
-        </div>
-      </div>
+      <Segmented<CheckoutMethod>
+        name="method"
+        legend={t("checkout.method")}
+        value={details.method}
+        onChange={(method) => update("method", method)}
+        options={[
+          { value: "pickup", label: t("checkout.pickup"), icon: "🏪" },
+          { value: "delivery", label: t("checkout.delivery"), icon: "🚚" },
+        ]}
+      />
 
-      <fieldset>
-        <legend className={label}>{t("checkout.method")}</legend>
-        <div className="flex flex-wrap gap-4">
-          {(["pickup", "delivery"] as const).map((method) => (
-            <label key={method} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="method"
-                value={method}
-                checked={details.method === method}
-                onChange={() => update("method", method)}
-                className="accent-green-700"
-              />
-              {t(`checkout.${method}`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <TextField
+        id="checkout-name"
+        label={t("checkout.name")}
+        value={details.name}
+        onChange={(value) => update("name", value)}
+        autoComplete="name"
+        maxLength={200}
+        required
+      />
+      <TextField
+        id="checkout-phone"
+        type="tel"
+        label={t("checkout.phone")}
+        value={details.phone}
+        onChange={(value) => update("phone", value)}
+        autoComplete="tel"
+        maxLength={200}
+        required
+      />
 
       {details.method === "delivery" && (
-        <div>
-          <label htmlFor="checkout-address" className={label}>
-            {t("checkout.address")} *
-          </label>
-          <textarea
-            id="checkout-address"
-            className={input}
-            rows={3}
-            value={details.address}
-            onChange={(event) => update("address", event.target.value)}
-            autoComplete="street-address"
-            maxLength={1000}
-          />
-          <p className={`${muted} mt-1`}>{t("checkout.deliveryNote")}</p>
-        </div>
+        <TextField
+          id="checkout-address"
+          label={t("checkout.address")}
+          value={details.address}
+          onChange={(value) => update("address", value)}
+          autoComplete="street-address"
+          maxLength={1000}
+          multiline
+          required
+          hint={t("checkout.deliveryNote")}
+        />
       )}
 
-      <div>
-        <label htmlFor="checkout-notes" className={label}>
-          {t("checkout.notes")}
-        </label>
-        <textarea
-          id="checkout-notes"
-          className={input}
-          rows={2}
-          value={details.notes}
-          onChange={(event) => update("notes", event.target.value)}
-          maxLength={1000}
-        />
-      </div>
+      <TextField
+        id="checkout-notes"
+        label={t("checkout.notes")}
+        value={details.notes}
+        onChange={(value) => update("notes", value)}
+        maxLength={1000}
+        multiline
+        rows={2}
+      />
 
-      <button type="submit" className={`${btnPrimary} w-full sm:w-auto`}>
-        💬 {t("checkout.send")}
+      <button
+        type="submit"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1ebe5a] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
+          <path d="M12.04 2a9.9 9.9 0 0 0-8.5 15l-1.3 4.8 4.9-1.3A9.9 9.9 0 1 0 12.04 2Zm5.8 14.1c-.25.7-1.44 1.33-2 1.38-.52.05-1 .25-3.4-.7a11.6 11.6 0 0 1-4.5-4c-.33-.45-1.08-1.45-1.08-2.77s.7-1.97.94-2.24a1 1 0 0 1 .72-.34h.52c.17 0 .4-.06.62.47l.86 2.08a.5.5 0 0 1 .02.48l-.32.52-.47.52c-.16.16-.32.33-.14.65a9.6 9.6 0 0 0 1.76 2.18 8.6 8.6 0 0 0 2.55 1.57c.32.16.5.13.69-.08l.92-1.07c.2-.32.4-.26.66-.16l2.07.97c.3.15.5.22.57.34.07.13.07.72-.18 1.42Z" />
+        </svg>
+        {t("checkout.send")}
       </button>
 
-      <p className="text-xs text-gray-600">{t("checkout.privacy")}</p>
+      <p className="text-xs leading-relaxed text-gray-500">{t("checkout.privacy")}</p>
     </form>
   );
 }

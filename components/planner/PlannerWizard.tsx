@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@heroicons/react/20/solid";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
 import { VEGETABLES } from "@/lib/data/vegetables";
@@ -10,14 +11,16 @@ import {
   toAmount,
   type PlannerInputs,
 } from "@/lib/planner/calc";
+import { seedlingFor } from "@/lib/products";
+import NumberStepper from "../ui/NumberStepper";
 import StepIndicator from "../ui/StepIndicator";
 import {
   btnPrimary,
   btnSecondary,
   card,
+  chip,
+  eyebrow,
   heading,
-  input,
-  label,
   muted,
 } from "../ui/styles";
 import PlanResults from "./PlanResults";
@@ -31,6 +34,14 @@ type FormState = {
 };
 
 const STEPS: StringKey[] = ["step.home", "step.vegetables", "step.amounts", "step.plan"];
+
+const SPACE_PRESETS: { key: StringKey; sqft: number; icon: string }[] = [
+  { key: "preset.balcony", sqft: 30, icon: "🪴" },
+  { key: "preset.rooftop", sqft: 60, icon: "🏠" },
+  { key: "preset.yard", sqft: 120, icon: "🌿" },
+  { key: "preset.garden", sqft: 250, icon: "🌳" },
+];
+const SPACE_SLIDER_MAX = 400;
 
 function initialForm(): FormState {
   return {
@@ -66,6 +77,8 @@ function toInputs(form: FormState): PlannerInputs {
   };
 }
 
+const vegIcon = (id: string) => seedlingFor(id)?.icon ?? "🌱";
+
 /**
  * The planner, one step at a time (SRS 3.1): home, vegetables, amounts and
  * prices, then the plan. Next is blocked while the space is 0 or no
@@ -84,10 +97,7 @@ export default function PlannerWizard() {
   );
   const selected = VEGETABLES.filter((veg) => form.veg[veg.id].selected);
 
-  const setVeg = (
-    id: string,
-    patch: Partial<FormState["veg"][string]>
-  ) =>
+  const setVeg = (id: string, patch: Partial<FormState["veg"][string]>) =>
     setForm((prev) => ({
       ...prev,
       veg: { ...prev.veg, [id]: { ...prev.veg[id], ...patch } },
@@ -101,6 +111,11 @@ export default function PlannerWizard() {
       ),
     }));
 
+  const goTo = (next: number) => {
+    setStep(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const next = () => {
     if (step === 0 && inputs.space <= 0) {
       addErrorNotification(t("needSpace"));
@@ -110,165 +125,227 @@ export default function PlannerWizard() {
       addErrorNotification(t("needVeg"));
       return;
     }
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
-    window.scrollTo({ top: 0 });
+    goTo(Math.min(step + 1, STEPS.length - 1));
   };
 
-  const back = () => setStep((s) => Math.max(s - 1, 0));
+  const back = () => goTo(Math.max(step - 1, 0));
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6 pb-24">
+      <header className="space-y-2">
+        <p className={eyebrow}>🌱 {t("tagline")}</p>
         <h1 className={heading}>{t("planner.title")}</h1>
-        <p className={muted}>{t("planner.intro")}</p>
-      </div>
+        <p className={`${muted} max-w-2xl`}>{t("planner.intro")}</p>
+      </header>
 
       <StepIndicator
         steps={STEPS.map((key) => t(key))}
         current={step}
         label={t("stepOf", { n: step + 1, total: STEPS.length })}
+        onSelect={goTo}
       />
 
       {step === 0 && (
-        <section className={`${card} grid gap-4 sm:grid-cols-2`}>
-          <div>
-            <label htmlFor="people" className={label}>
-              {t("people")}
-            </label>
-            <input
+        <section className="grid gap-4 md:grid-cols-2">
+          <div className={`${card} flex flex-col gap-5`}>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-50 text-2xl">
+                👨‍👩‍👧‍👦
+              </span>
+              <h2 className="font-semibold text-gray-900">{t("people")}</h2>
+            </div>
+            <NumberStepper
               id="people"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              className={input}
+              label={t("people")}
               value={form.people}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, people: event.target.value }))
-              }
+              min={1}
+              max={30}
+              onChange={(people) => setForm((prev) => ({ ...prev, people }))}
             />
+            <p className="text-center text-2xl tracking-widest" aria-hidden="true">
+              {"🧑".repeat(Math.min(Math.max(1, Math.floor(toAmount(form.people))), 12))}
+            </p>
           </div>
-          <div>
-            <label htmlFor="space" className={label}>
-              {t("space")}
-            </label>
-            <input
+
+          <div className={`${card} flex flex-col gap-5`}>
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">
+                📐
+              </span>
+              <div>
+                <h2 className="font-semibold text-gray-900">{t("space")}</h2>
+                <p className="text-xs text-gray-500">{t("spaceHint")}</p>
+              </div>
+            </div>
+            <NumberStepper
               id="space"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              className={input}
+              label={t("space")}
               value={form.space}
+              step={5}
+              unit="sq ft"
+              onChange={(space) => setForm((prev) => ({ ...prev, space }))}
+            />
+            <input
+              type="range"
+              min={0}
+              max={SPACE_SLIDER_MAX}
+              step={5}
+              value={Math.min(toAmount(form.space), SPACE_SLIDER_MAX)}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, space: event.target.value }))
               }
+              aria-label={`${t("space")} – slider`}
+              className="w-full accent-emerald-600"
             />
-            <p className={`${muted} mt-1`}>{t("spaceHint")}</p>
+            <div className="flex flex-wrap gap-2">
+              {SPACE_PRESETS.map((preset) => (
+                <button
+                  key={preset.key}
+                  type="button"
+                  className={chip(toAmount(form.space) === preset.sqft)}
+                  onClick={() =>
+                    setForm((prev) => ({ ...prev, space: String(preset.sqft) }))
+                  }
+                >
+                  {preset.icon} {t(preset.key)} · {preset.sqft}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       {step === 1 && (
-        <section className={`${card} space-y-3`}>
-          <p className="text-gray-800">{t("chooseVeg")}</p>
-          <div className="flex gap-2">
-            <button type="button" className={btnSecondary} onClick={() => selectAll(true)}>
-              {t("selectAll")}
-            </button>
-            <button type="button" className={btnSecondary} onClick={() => selectAll(false)}>
-              {t("selectNone")}
-            </button>
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-gray-900">{t("chooseVeg")}</p>
+              <p className={muted}>{t("selectedCount", { n: selected.length })}</p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" className={chip(false)} onClick={() => selectAll(true)}>
+                {t("selectAll")}
+              </button>
+              <button type="button" className={chip(false)} onClick={() => selectAll(false)}>
+                {t("selectNone")}
+              </button>
+            </div>
           </div>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {VEGETABLES.map((veg) => (
-              <li key={veg.id}>
-                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-green-100 p-3 hover:bg-green-50">
-                  <input
-                    type="checkbox"
-                    checked={form.veg[veg.id].selected}
-                    onChange={(event) =>
-                      setVeg(veg.id, { selected: event.target.checked })
-                    }
-                    className="h-5 w-5 accent-green-700"
-                  />
-                  <span>{l(veg.name)}</span>
-                </label>
-              </li>
-            ))}
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {VEGETABLES.map((veg) => {
+              const isOn = form.veg[veg.id].selected;
+              return (
+                <li key={veg.id}>
+                  <label
+                    className={`relative flex h-full cursor-pointer flex-col items-center gap-2 rounded-3xl p-4 text-center transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-500 ${
+                      isOn
+                        ? "bg-emerald-50 ring-2 ring-emerald-500"
+                        : "bg-white ring-1 ring-black/5 hover:ring-gray-300"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isOn}
+                      onChange={(event) =>
+                        setVeg(veg.id, { selected: event.target.checked })
+                      }
+                      className="sr-only"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={`absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full transition ${
+                        isOn ? "bg-emerald-600 text-white" : "bg-gray-100 text-transparent"
+                      }`}
+                    >
+                      <CheckIcon className="h-4 w-4" />
+                    </span>
+                    <span className="text-4xl" aria-hidden="true">
+                      {vegIcon(veg.id)}
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">{l(veg.name)}</span>
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
 
       {step === 2 && (
-        <section className={`${card} space-y-3`}>
-          <p className="text-gray-800">{t("amountsHint")}</p>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t("col.vegetable")}</th>
-                  <th>{t("gramsPerWeek")}</th>
-                  <th>{t("pricePerKg")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selected.map((veg) => (
-                  <tr key={veg.id}>
-                    <td>{l(veg.name)}</td>
-                    <td>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        aria-label={`${l(veg.name)}: ${t("gramsPerWeek")}`}
-                        className={`${input} w-24`}
+        <section className="space-y-4">
+          <p className={muted}>{t("amountsHint")}</p>
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {selected.map((veg) => {
+              const name = l(veg.name);
+              return (
+                <li key={veg.id} className={`${card} !p-4 space-y-3`}>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-2xl" aria-hidden="true">
+                      {vegIcon(veg.id)}
+                    </span>
+                    <h3 className="font-semibold text-gray-900">{name}</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-gray-50 p-2">
+                      <p className="mb-1 text-center text-[11px] font-medium text-gray-500">
+                        {t("unit.gWeek")}
+                      </p>
+                      <NumberStepper
+                        id={`grams-${veg.id}`}
+                        label={`${name}: ${t("gramsPerWeek")}`}
                         value={form.veg[veg.id].grams}
-                        onChange={(event) =>
-                          setVeg(veg.id, { grams: event.target.value })
-                        }
+                        step={25}
+                        size="sm"
+                        onChange={(grams) => setVeg(veg.id, { grams })}
                       />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        aria-label={`${l(veg.name)}: ${t("pricePerKg")}`}
-                        className={`${input} w-28`}
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-2">
+                      <p className="mb-1 text-center text-[11px] font-medium text-gray-500">
+                        {t("unit.rsKg")}
+                      </p>
+                      <NumberStepper
+                        id={`price-${veg.id}`}
+                        label={`${name}: ${t("pricePerKg")}`}
                         value={form.veg[veg.id].price}
-                        onChange={(event) =>
-                          setVeg(veg.id, { price: event.target.value })
-                        }
+                        step={50}
+                        size="sm"
+                        onChange={(price) => setVeg(veg.id, { price })}
                       />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
 
       {step === 3 && plan && <PlanResults plan={plan} inputs={inputs} />}
 
-      <div className="flex flex-wrap justify-between gap-2">
-        {step > 0 ? (
-          <button type="button" className={btnSecondary} onClick={back}>
-            ← {step === 3 ? t("startOver") : t("back")}
-          </button>
-        ) : (
-          <span />
-        )}
-        {step < 2 && (
-          <button type="button" className={btnPrimary} onClick={next}>
-            {t("next")} →
-          </button>
-        )}
-        {step === 2 && (
-          <button type="button" className={btnPrimary} onClick={next}>
-            {t("calculate")} →
-          </button>
-        )}
+      {/* Sticky action bar, within thumb reach on a phone */}
+      <div className="fixed inset-x-0 bottom-16 z-10 border-t border-black/5 bg-white/90 backdrop-blur md:bottom-0">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+          {step > 0 ? (
+            <button type="button" className={btnSecondary} onClick={back}>
+              <ArrowLeftIcon className="h-4 w-4" />
+              {step === 3 ? t("startOver") : t("back")}
+            </button>
+          ) : (
+            <span />
+          )}
+          {step < 2 && (
+            <button type="button" className={btnPrimary} onClick={next}>
+              {t("next")}
+              <ArrowRightIcon className="h-4 w-4" />
+            </button>
+          )}
+          {step === 2 && (
+            <button type="button" className={btnPrimary} onClick={next}>
+              {t("calculate")}
+              <ArrowRightIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7faf5;
-  --foreground: #1c2a1e;
+  --background: #f6f8f4;
+  --foreground: #111827;
 }
 
 @theme inline {
@@ -37,14 +37,15 @@ body {
 .table-scroll td {
   padding: 0.5rem 0.625rem;
   text-align: left;
-  border-bottom: 1px solid #e3ebe0;
+  border-bottom: 1px solid #eef1ec;
   white-space: nowrap;
 }
 
 .table-scroll th {
   font-weight: 600;
-  color: #3f5443;
-  background: #eef4ea;
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f9faf8;
 }
 
 .table-scroll td.num,

@@ -72,7 +72,7 @@ export default function AccountView({ state }: { state: AccountState }) {
 
       {/* FR-A-03 */}
       <section className={`${card} flex flex-col items-center gap-4 sm:flex-row`}>
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-green-100 bg-green-50">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-black/5 bg-emerald-50">
           {user.photoURL ? (
             // A plain <img>: the avatar host cannot be pinned in next.config.ts
             // eslint-disable-next-line @next/next/no-img-element
@@ -111,12 +111,12 @@ export default function AccountView({ state }: { state: AccountState }) {
             ) : (
               <ul className="space-y-3">
                 {state.orders.map((order) => (
-                  <li key={order.id} className="rounded-lg border border-green-100 p-3">
+                  <li key={order.id} className="rounded-2xl border border-black/5 p-3">
                     <div className="flex flex-wrap justify-between gap-2 text-sm">
                       <time dateTime={order.createdAt} className="text-gray-600">
                         {formatDate(order.createdAt)}
                       </time>
-                      <span className="font-bold text-green-900">
+                      <span className="font-bold text-gray-900">
                         {formatLKR(order.total)}
                       </span>
                     </div>
@@ -144,7 +144,7 @@ export default function AccountView({ state }: { state: AccountState }) {
                 {state.plans.map((plan) => (
                   <li
                     key={plan.id}
-                    className="flex flex-wrap justify-between gap-2 rounded-lg border border-green-100 p-3 text-sm"
+                    className="flex flex-wrap justify-between gap-2 rounded-2xl border border-black/5 p-3 text-sm"
                   >
                     <time dateTime={plan.createdAt} className="text-gray-600">
                       {formatDate(plan.createdAt)}

@@ -75,17 +75,17 @@ export default function GuideView({ id }: { id: string }) {
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded-lg bg-green-50 p-3">
-            <dt className="text-xs text-gray-700">{stat.label}</dt>
-            <dd className="font-bold text-green-900">{stat.value}</dd>
+          <div key={stat.label} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+            <dt className="text-xs text-gray-500">{stat.label}</dt>
+            <dd className="mt-0.5 text-lg font-bold text-gray-900">{stat.value}</dd>
           </div>
         ))}
       </dl>
 
-      <ol className="space-y-3">
+      <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[2.35rem] before:top-6 before:w-0.5 before:bg-emerald-100 sm:before:left-[2.6rem]">
         {guide.steps.map((step, i) => (
-          <li key={i} className={`${card} flex gap-3`}>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-700 text-sm font-bold text-white">
+          <li key={i} className={`${card} relative flex gap-4`}>
+            <span className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white ring-4 ring-emerald-50">
               {i + 1}
             </span>
             <div>
@@ -93,7 +93,7 @@ export default function GuideView({ id }: { id: string }) {
                 <span className="sr-only">{t("stepN", { n: i + 1 })}: </span>
                 {l(step.title)}
               </h2>
-              <p className="mt-1 text-sm text-gray-700">
+              <p className="mt-1 text-sm leading-relaxed text-gray-600">
                 <ProductText text={l(step.text)} />
               </p>
             </div>

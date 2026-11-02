@@ -17,6 +17,8 @@ import { toAmount } from "@/lib/planner/calc";
 import { computePlantation } from "@/lib/plantation/calc";
 import { formatLKR, formatNumber } from "@/lib/products";
 import { isPlaceholderNumber } from "@/lib/shop-config";
+import NumberStepper from "../ui/NumberStepper";
+import Segmented from "../ui/Segmented";
 import StepIndicator from "../ui/StepIndicator";
 import {
   btnPrimary,
@@ -26,6 +28,7 @@ import {
   input,
   label,
   muted,
+  eyebrow,
   subheading,
 } from "../ui/styles";
 
@@ -57,7 +60,7 @@ function toStrings(a: PlantationAssumptions): Assumptions {
 
 function Disclaimer() {
   return (
-    <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+    <p className="rounded-2xl bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-200">
       ⚠️ These figures are planning estimates based on placeholder assumptions
       that have not been checked. They are not financial or agricultural
       advice. Confirm costs, yields and prices with the Sri Lanka Tea Board,
@@ -149,75 +152,84 @@ export default function PlantationWizard() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
+    <div className="space-y-6 pb-24">
+      <header className="space-y-2">
+        <p className={eyebrow}>🌴 Large-scale planting</p>
         <h1 className={heading}>Plantation investment</h1>
         <p className={muted}>
           See what planting Ceylon cinnamon or tea could cost and earn.
         </p>
-      </div>
+      </header>
 
       <StepIndicator
         steps={STEPS}
         current={step}
         label={`Step ${step + 1} of ${STEPS.length}`}
+        onSelect={setStep}
       />
 
       <Disclaimer />
 
       {step === 0 && (
-        <section className={`${card} grid gap-3 sm:grid-cols-2`}>
+        <section className="grid gap-4 sm:grid-cols-2">
           {CROPS.map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => setCropId(c.id)}
               aria-pressed={cropId === c.id}
-              className={`rounded-xl border-2 p-4 text-left transition ${
+              className={`relative flex flex-col items-start gap-2 rounded-3xl p-6 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                 cropId === c.id
-                  ? "border-green-700 bg-green-50"
-                  : "border-green-100 hover:border-green-300"
+                  ? "bg-emerald-50 ring-2 ring-emerald-500"
+                  : "bg-white shadow-sm ring-1 ring-black/5 hover:ring-gray-300"
               }`}
             >
-              <span className="text-3xl" aria-hidden="true">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-4xl shadow-sm" aria-hidden="true">
                 {c.icon}
               </span>
-              <span className="mt-2 block text-lg font-semibold">{c.name}</span>
-              <span className="text-sm text-gray-600">Sold as {c.product}</span>
+              <span className="text-lg font-semibold text-gray-900">{c.name}</span>
+              <span className="text-sm text-gray-500">Sold as {c.product}</span>
+              {cropId === c.id && (
+                <span className="absolute right-4 top-4 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  Selected
+                </span>
+              )}
             </button>
           ))}
         </section>
       )}
 
       {step === 1 && (
-        <section className={`${card} space-y-3`}>
-          <label htmlFor="land" className={label}>
-            Land size
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="land"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="any"
-              className={`${input} max-w-40`}
-              value={land}
-              onChange={(event) => setLand(event.target.value)}
-            />
-            <select
-              aria-label="Unit"
-              className={`${input} w-auto`}
-              value={unit}
-              onChange={(event) => setUnit(event.target.value as "ha" | "acre")}
-            >
-              <option value="ha">hectares</option>
-              <option value="acre">acres</option>
-            </select>
+        <section className={`${card} mx-auto max-w-md space-y-5`}>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">
+              🗺️
+            </span>
+            <h2 className="font-semibold text-gray-900">How much land do you have?</h2>
           </div>
-          <p className={muted}>
-            = {formatNumber(hectares, 2)} ha = {formatNumber(acres, 2)} acres (1
-            ha = {HECTARE_IN_ACRES} acres)
+          <Segmented<"ha" | "acre">
+            name="land-unit"
+            legend="Unit"
+            value={unit}
+            onChange={setUnit}
+            options={[
+              { value: "ha", label: "Hectares" },
+              { value: "acre", label: "Acres" },
+            ]}
+          />
+          <NumberStepper
+            id="land"
+            label="Land size"
+            value={land}
+            step={0.5}
+            unit={unit === "ha" ? "ha" : "acres"}
+            onChange={setLand}
+          />
+          <p className="rounded-2xl bg-gray-50 p-3 text-center text-sm text-gray-600">
+            = {formatNumber(hectares, 2)} ha = {formatNumber(acres, 2)} acres
+            <span className="block text-xs text-gray-400">
+              1 ha = {HECTARE_IN_ACRES} acres
+            </span>
           </p>
         </section>
       )}
@@ -239,7 +251,7 @@ export default function PlantationWizard() {
                 result.irr === null ? "None" : `${formatNumber(result.irr * 100)}%`,
               ],
             ].map(([term, value]) => (
-              <div key={term} className="rounded-xl bg-green-800 p-4 text-white">
+              <div key={term} className="rounded-3xl bg-gradient-to-br from-emerald-600 to-green-800 p-4 text-white shadow-sm">
                 <p className="text-xs opacity-90">{term}</p>
                 <p className="text-lg font-bold">{value}</p>
               </div>
@@ -263,7 +275,7 @@ export default function PlantationWizard() {
           </section>
 
           <details className={card}>
-            <summary className="cursor-pointer font-semibold text-green-900">
+            <summary className="cursor-pointer font-semibold text-gray-900">
               Advanced settings
             </summary>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -356,7 +368,7 @@ export default function PlantationWizard() {
                         {formatLKR(row.net)}
                       </td>
                       <td
-                        className={`num ${row.cumulative < 0 ? "text-red-700" : "text-green-800"}`}
+                        className={`num ${row.cumulative < 0 ? "text-red-700" : "text-emerald-700"}`}
                       >
                         {formatLKR(row.cumulative)}
                       </td>
@@ -387,7 +399,7 @@ export default function PlantationWizard() {
 
       {step === 3 && crop && (
         <section className={`${card} space-y-4`}>
-          <p className="text-sm font-semibold text-green-800">
+          <p className="text-sm font-semibold text-emerald-700">
             {crop.name}: step {guideStep + 1} of {crop.steps.length}
           </p>
           <div>
@@ -417,23 +429,26 @@ export default function PlantationWizard() {
         </section>
       )}
 
-      <div className="flex flex-wrap justify-between gap-2">
-        {step > 0 ? (
-          <button
-            type="button"
-            className={btnSecondary}
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-          >
-            ← Back
-          </button>
-        ) : (
-          <span />
-        )}
-        {step < STEPS.length - 1 && (
-          <button type="button" className={btnPrimary} onClick={next}>
-            {step === 2 ? "How to grow it" : "Next"} →
-          </button>
-        )}
+      {/* Sticky action bar, within thumb reach on a phone */}
+      <div className="fixed inset-x-0 bottom-16 z-10 border-t border-black/5 bg-white/90 backdrop-blur md:bottom-0">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+          {step > 0 ? (
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+            >
+              ← Back
+            </button>
+          ) : (
+            <span />
+          )}
+          {step < STEPS.length - 1 && (
+            <button type="button" className={btnPrimary} onClick={next}>
+              {step === 2 ? "How to grow it" : "Next"} →
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -25,7 +25,7 @@ export default function ProductText({ text }: { text: string }) {
         return (
           <Fragment key={i}>
             <strong className="font-semibold">{l(product.name)}</strong>{" "}
-            <code className="rounded bg-green-50 px-1 text-xs text-green-800">
+            <code className="rounded bg-emerald-50 px-1 text-xs text-emerald-700">
               {productCode(part)}
             </code>
           </Fragment>

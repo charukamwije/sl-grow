@@ -19,13 +19,13 @@ export default function GuideList({ currentId, compact }: GuideListProps) {
       <Link
         href={`/guides/${guide.id}`}
         aria-current={guide.id === currentId ? "page" : undefined}
-        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+        className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
           guide.id === currentId
-            ? "border-green-700 bg-green-700 text-white"
-            : "border-green-100 bg-white text-gray-900 hover:bg-green-50"
+            ? "bg-emerald-600 text-white shadow-sm"
+            : "bg-white text-gray-900 shadow-sm ring-1 ring-black/5 hover:ring-emerald-300"
         }`}
       >
-        <span aria-hidden="true">{guide.icon}</span>
+        <span className="text-2xl" aria-hidden="true">{guide.icon}</span>
         <span>{l(guide.name)}</span>
       </Link>
     </li>

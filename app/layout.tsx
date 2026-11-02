@@ -72,7 +72,7 @@ export default async function RootLayout({
                 <CartProvider uid={user?.uid ?? null}>
                   <div className="flex min-h-screen flex-col">
                     <Header />
-                    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+                    <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 md:pb-10 md:pt-8">
                       {children}
                     </main>
                     <Footer />

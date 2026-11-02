@@ -230,7 +230,7 @@ describe("checkout", () => {
 
     await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
     await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
-    await userEvent.click(screen.getByLabelText("Delivery"));
+    await userEvent.click(screen.getByRole("radio", { name: "Delivery" }));
     await userEvent.click(screen.getByRole("button", { name: /send order/i }));
 
     expect(
