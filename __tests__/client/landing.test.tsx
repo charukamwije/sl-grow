@@ -1,15 +1,31 @@
 /**
  * @vitest-environment jsdom
  */
-import { screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import LandingPage from "@/components/landing/LandingPage";
+import { BEAT_MS } from "@/components/landing/StoryRotator";
 import { VEGETABLES } from "@/lib/data/vegetables";
+import { STRINGS } from "@/lib/i18n/strings";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
 import { formatLKR } from "@/lib/products";
 import { renderWithLanguage as render } from "./render";
 import "./setup";
+
+const STORY_TEXT = [
+  STRINGS["home.story1"].en,
+  STRINGS["home.story2"].en,
+  STRINGS["home.story3"].en,
+];
+
+// The beat currently on show: all three are in the page, the rest hidden
+function shownBeat() {
+  return STORY_TEXT.find(
+    (text) =>
+      screen.getByText(text).closest("[aria-hidden]")?.getAttribute("aria-hidden") === "false"
+  );
+}
 
 describe("the landing page", () => {
   it("links to the planner and the shop", () => {
@@ -31,6 +47,51 @@ describe("the landing page", () => {
     expect(screen.getByText(String(VEGETABLES.length))).toBeInTheDocument();
     // Kankun is the quickest crop in the data, at 30 days
     expect(screen.getByText(/first Kankun harvest/)).toBeInTheDocument();
+  });
+
+  it("tells the story one beat at a time, round and round", () => {
+    vi.useFakeTimers();
+    try {
+      render(<LandingPage />);
+
+      expect(shownBeat()).toBe(STORY_TEXT[0]);
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(shownBeat()).toBe(STORY_TEXT[1]);
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(shownBeat()).toBe(STORY_TEXT[2]);
+      // And back to the start, forever
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(shownBeat()).toBe(STORY_TEXT[0]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("can be paused, and jumps to a beat when its bar is chosen", () => {
+    vi.useFakeTimers();
+    try {
+      render(<LandingPage />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Pause the story" }));
+      act(() => vi.advanceTimersByTime(BEAT_MS * 3));
+      expect(shownBeat()).toBe(STORY_TEXT[0]);
+
+      fireEvent.click(screen.getByRole("button", { name: "Show: The answer" }));
+      expect(shownBeat()).toBe(STORY_TEXT[2]);
+      expect(screen.getByRole("button", { name: "Play the story" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows a growing plant beside the story", () => {
+    render(<LandingPage />);
+
+    expect(
+      screen.getByRole("img", { name: /tomato plant growing in a grow bag/i })
+    ).toBeInTheDocument();
+    // The harvest label uses the tomato's days to harvest from the planner data
+    expect(screen.getByText("Day 75")).toBeInTheDocument();
   });
 
   it("tells the grow-your-own story with the planner's own savings figure", () => {

@@ -10,13 +10,22 @@ import { formatLKR, formatNumber, seedlingFor } from "@/lib/products";
 import { btnPrimary, btnSecondary, card, eyebrow } from "../ui/styles";
 import BarChart from "./BarChart";
 import CountUp from "./CountUp";
+import GrowingPlant from "./GrowingPlant";
 import ProvinceMap from "./ProvinceMap";
 import Reveal from "./Reveal";
+import StoryRotator, { type StoryBeat } from "./StoryRotator";
 
 // The WHO's recommended minimum intake of fruit and vegetables
 const WHO_GRAMS_PER_DAY = 400;
 
-const ADVANTAGES: { title: StringKey; text: StringKey; icon: string }[] = [
+// The hero's story: the gift, the problem, the answer
+const STORY: StoryBeat[] = [
+  { label: "home.story1Label", text: "home.story1", icon: "☀️", tint: "bg-amber-100", labelColor: "text-amber-700" },
+  { label: "home.story2Label", text: "home.story2", icon: "🚚", tint: "bg-gray-100", labelColor: "text-gray-500" },
+  { label: "home.story3Label", text: "home.story3", icon: "🌱", tint: "bg-emerald-100", labelColor: "text-emerald-700" },
+];
+
+const ADVANTAGES:{ title: StringKey; text: StringKey; icon: string }[] = [
   { title: "home.advSun", text: "home.advSunText", icon: "☀️" },
   { title: "home.advWarm", text: "home.advWarmText", icon: "🌡️" },
   { title: "home.advRain", text: "home.advRainText", icon: "🌧️" },
@@ -147,29 +156,17 @@ export default function LandingPage() {
             <h1 className="animate-fade-up text-3xl font-bold leading-tight tracking-tight text-gray-900 [animation-delay:100ms] sm:text-5xl">
               {t("home.title")}
             </h1>
-            <p className="max-w-xl animate-fade-up text-base leading-relaxed text-gray-600 [animation-delay:200ms] sm:text-lg">
-              {t("home.subtitle")}
-            </p>
-            <div className="animate-fade-up [animation-delay:300ms]">
+            {/* The pitch as a three-beat story, one beat at a time, on a loop */}
+            <div className="animate-fade-up [animation-delay:250ms]">
+              <StoryRotator beats={STORY} />
+            </div>
+            <div className="animate-fade-up [animation-delay:400ms]">
               <Ctas />
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 sm:gap-3" aria-hidden="true">
-            {VEGETABLES.slice(0, 8).map((veg, i) => (
-              <div
-                key={veg.id}
-                className="animate-fade-up"
-                style={{ animationDelay: `${300 + i * 70}ms` }}
-              >
-                <div
-                  className="flex aspect-square animate-float items-center justify-center rounded-3xl bg-white text-3xl shadow-sm ring-1 ring-black/5 sm:text-5xl"
-                  style={{ animationDelay: `${-i * 0.7}s` }}
-                >
-                  {icon(veg.id)}
-                </div>
-              </div>
-            ))}
+          <div className="animate-fade-up [animation-delay:200ms]">
+            <GrowingPlant />
           </div>
         </div>
       </section>
