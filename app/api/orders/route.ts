@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { resolveUid } from "@/lib/firebase/route-auth";
 import { userOrders } from "@/lib/firebase/store";
+import { generateOrderRef, isOrderRef } from "@/lib/order/reference";
 import {
   validateCheckout,
   type CheckoutDetails,
@@ -64,9 +65,13 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     details?: unknown;
     cart?: unknown;
+    ref?: unknown;
   } | null;
   const details = readDetails(body?.details);
   const cart = sanitizeCart(body?.cart);
+  // The reference the customer already has in WhatsApp; a malformed one is
+  // replaced rather than stored
+  const ref = isOrderRef(body?.ref) ? body.ref : generateOrderRef();
 
   if (!details || validateCheckout(details, cart) !== null) {
     return NextResponse.json(
@@ -84,14 +89,15 @@ export async function POST(request: NextRequest) {
   }));
 
   try {
-    const ref = await userOrders(uid).add({
+    const doc = await userOrders(uid).add({
+      ref,
       ...details,
       items,
       total: cartTotal(cart),
       createdAt: FieldValue.serverTimestamp(),
     });
 
-    return NextResponse.json({ success: true, id: ref.id });
+    return NextResponse.json({ success: true, id: doc.id, ref });
   } catch (error) {
     console.error("Order save error:", error);
 

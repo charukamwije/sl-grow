@@ -47,7 +47,7 @@ export default function CartView() {
             <Link href="/shop" className={btnPrimary}>
               {t("nav.shop")}
             </Link>
-            <Link href="/" className={btnSecondary}>
+            <Link href="/planner" className={btnSecondary}>
               {t("nav.planner")}
             </Link>
           </div>
@@ -115,7 +115,7 @@ export default function CartView() {
             </Link>
           </div>
 
-          <aside className="space-y-4 lg:sticky lg:top-36">
+          <aside className="space-y-4 lg:sticky lg:top-24">
             <div className={card}>
               <p className="text-sm font-medium text-gray-500">{t("cart.summary")}</p>
               <div className="mt-2 flex items-baseline justify-between">
@@ -127,6 +127,21 @@ export default function CartView() {
             </div>
             <CheckoutForm />
           </aside>
+
+          {/* On phones the total stays in view while scrolling the items */}
+          <div className="sticky bottom-0 z-10 -mx-4 border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:mx-0 sm:rounded-3xl sm:border sm:shadow-lg lg:hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-xs text-gray-500">{t("cart.total")}</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {formatLKR(cartTotal(cart))}
+                </p>
+              </div>
+              <a href="#checkout" className={btnPrimary}>
+                {t("checkout.title")}
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -44,7 +44,7 @@ export default function NumberStepper({
 
   const big = size === "lg";
   const button = `flex shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 active:scale-90 disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-    big ? "h-12 w-12" : "h-9 w-9"
+    big ? "h-12 w-12" : "h-8 w-8"
   }`;
 
   return (
@@ -55,7 +55,7 @@ export default function NumberStepper({
       >
         {label}
       </label>
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center ${big ? "gap-2" : "gap-1"}`}>
         <button
           type="button"
           className={button}
@@ -74,7 +74,9 @@ export default function NumberStepper({
             max={max === Number.MAX_SAFE_INTEGER ? undefined : max}
             value={value}
             onChange={(event) => onChange(event.target.value)}
-            className={`w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-center font-bold text-gray-900 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+            // Sized to the digits so the unit sits right beside the number
+            style={{ width: `${Math.max(value.length, 1) + 0.6}ch` }}
+            className={`min-w-0 max-w-full appearance-none border-0 bg-transparent p-0 text-center font-bold text-gray-900 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
               big ? "text-4xl" : "text-lg"
             }`}
           />

@@ -6,6 +6,8 @@ import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
 import { useSession } from "@/contexts/session-context";
+import { devicePlans } from "@/lib/device-history";
+import { generateOrderRef, ORDER_REF_PREFIX } from "@/lib/order/reference";
 import type { PlanResult, PlannerInputs, PlanRow } from "@/lib/planner/calc";
 import { formatLKR, formatNumber, getProduct } from "@/lib/products";
 import ProductTable from "../shop/ProductTable";
@@ -25,7 +27,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
   const { t, l } = useLanguage();
   const { addMany } = useCart();
   const { user } = useSession();
-  const { addSuccessNotification, addErrorNotification, addInfoNotification } =
+  const { addSuccessNotification, addErrorNotification } =
     useNotification();
   const [saving, setSaving] = useState(false);
 
@@ -44,11 +46,18 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
     router.push("/cart");
   };
 
-  // FR-A-07, FR-A-08
+  // FR-A-07, FR-A-08: a guest's plan is kept on this device; a signed-in
+  // customer's goes to their account
   const savePlan = async () => {
     if (!user) {
-      addInfoNotification(t("signInToSave"));
-      router.push("/account");
+      devicePlans.add({
+        id: generateOrderRef().replace(ORDER_REF_PREFIX, "PLAN-"),
+        createdAt: new Date().toISOString(),
+        people: inputs.people,
+        space: inputs.space,
+        total: plan.shoppingTotal,
+      });
+      addSuccessNotification(t("planSavedDevice"));
       return;
     }
 
@@ -80,9 +89,9 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
       {/* The headline numbers first; the detail follows below */}
       <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-white shadow-lg shadow-emerald-900/10">
         <p className="text-sm font-medium text-emerald-100">{t("glance")}</p>
-        <p className="mt-1 text-4xl font-bold tracking-tight">
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-3xl font-bold tracking-tight sm:text-4xl">
           {formatLKR(Math.max(0, plan.savings.monthly))}
-          <span className="ml-2 text-base font-medium text-emerald-100">
+          <span className="text-sm font-medium text-emerald-100 sm:text-base">
             {t("sav.monthly")}
           </span>
         </p>
@@ -100,7 +109,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
           ].map(([term, value]) => (
             <div key={term} className="rounded-2xl bg-white/10 p-3 backdrop-blur">
               <dt className="text-xs text-emerald-100">{term}</dt>
-              <dd className="mt-0.5 text-lg font-semibold">{value}</dd>
+              <dd className="mt-0.5 break-words text-base font-semibold sm:text-lg">{value}</dd>
             </div>
           ))}
         </dl>

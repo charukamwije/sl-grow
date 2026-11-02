@@ -7,6 +7,8 @@ import { userOrders, userPlans } from "./store";
 // cannot cross the server/client component boundary.
 export type OrderSummary = {
   id: string;
+  /** Null for orders saved before references existed */
+  ref: string | null;
   createdAt: string;
   method: string;
   items: { code: string; name: string; qty: number; lineTotal: number }[];
@@ -33,6 +35,7 @@ export async function loadOrders(uid: string): Promise<OrderSummary[]> {
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
+    ref: (doc.get("ref") as string | undefined) ?? null,
     createdAt: createdAt(doc.get("createdAt")),
     method: doc.get("method") as string,
     items: doc.get("items") as OrderSummary["items"],

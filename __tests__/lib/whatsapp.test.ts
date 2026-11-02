@@ -42,7 +42,13 @@ describe("validateCheckout", () => {
 });
 
 describe("buildOrderMessage (FR-O-04, FR-O-05, AC-07)", () => {
-  const message = buildOrderMessage(details, cart);
+  const message = buildOrderMessage(details, cart, "ASW-7K3P9Q");
+
+  it("names the shop, so the owner can tell orders from other chats", () => {
+    expect(message.split("\n")[0]).toBe("New order - Aswedduma");
+    expect(message.split("\n")[1]).toBe("Reference: ASW-7K3P9Q");
+    expect(buildEnquiryMessage("Tea (Ceylon)", 1, 2.47)).toMatch(/^Plantation enquiry - Aswedduma/);
+  });
 
   it("lists the customer, method and address", () => {
     expect(message).toContain("Name: Nimal Perera");
@@ -63,7 +69,8 @@ describe("buildOrderMessage (FR-O-04, FR-O-05, AC-07)", () => {
   it("leaves out the address and empty notes for a pickup", () => {
     const pickup = buildOrderMessage(
       { ...details, method: "pickup", notes: "" },
-      cart
+      cart,
+      "ASW-7K3P9Q"
     );
 
     expect(pickup).toContain("Method: Pickup");

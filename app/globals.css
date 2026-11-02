@@ -52,3 +52,103 @@ body {
 .table-scroll th.num {
   text-align: right;
 }
+
+/* ---- Motion ----------------------------------------------------------
+   Named animations for Tailwind (animate-float, animate-fade-up, ...), plus
+   scroll reveals. Hidden-until-revealed states apply only once the page's
+   script has run (the `js` class on <html>), so content is never lost
+   without JavaScript, and everything is still for reduced-motion users. */
+@theme {
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pin-drop: pin-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-blob: blob 18s ease-in-out infinite;
+  --animate-sway: sway 4s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(2deg); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pin-drop {
+    from { opacity: 0; transform: translateY(-24px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.08); }
+    66% { transform: translate(-20px, 20px) scale(0.95); }
+  }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(4deg); }
+  }
+}
+
+.js .reveal {
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.js .reveal:not([data-visible]) {
+  opacity: 0;
+  transform: translateY(32px);
+}
+
+/* Children of a revealed block arrive one after another */
+.js .reveal-stagger > * {
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.js .reveal-stagger:not([data-visible]) > * {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.js .reveal-stagger[data-visible] > *:nth-child(2) { transition-delay: 0.08s; }
+.js .reveal-stagger[data-visible] > *:nth-child(3) { transition-delay: 0.16s; }
+.js .reveal-stagger[data-visible] > *:nth-child(4) { transition-delay: 0.24s; }
+.js .reveal-stagger[data-visible] > *:nth-child(5) { transition-delay: 0.32s; }
+.js .reveal-stagger[data-visible] > *:nth-child(6) { transition-delay: 0.4s; }
+
+/* Chart bars grow from the baseline once their chart scrolls into view */
+.js .reveal .grow-bar {
+  transform-origin: left;
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.js .reveal:not([data-visible]) .grow-bar {
+  transform: scaleX(0);
+}
+
+/* Lift cards slightly under the pointer */
+.lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -12px rgb(0 0 0 / 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+  }
+
+  .js .reveal:not([data-visible]),
+  .js .reveal-stagger:not([data-visible]) > *,
+  .js .reveal:not([data-visible]) .grow-bar {
+    opacity: 1;
+    transform: none;
+  }
+}

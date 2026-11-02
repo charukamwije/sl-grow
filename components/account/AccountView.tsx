@@ -7,6 +7,7 @@ import type { ServerUser } from "@/lib/firebase/auth-server";
 import { formatLKR, formatNumber } from "@/lib/products";
 import AccountDeleteButton from "../auth/AccountDeleteButton";
 import AuthButtons from "../auth/AuthButtons";
+import GuestHistory from "./GuestHistory";
 import UserIcon from "../icons/UserIcon";
 import AuthModal from "../modals/AuthModal";
 import { btnPrimary, card, heading, muted, subheading } from "../ui/styles";
@@ -33,33 +34,38 @@ export default function AccountView({ state }: { state: AccountState }) {
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  if (state.kind === "disabled") {
-    // FR-A-10
+  if (state.kind === "disabled" || state.kind === "signedOut") {
+    // Guest mode (FR-A-10): everything works, with history kept on the device.
+    // Sign-in is offered only when accounts are set up (FR-A-01).
     return (
       <div className="space-y-4">
         <h1 className={heading}>{t("account.title")}</h1>
-        <p className={`${card} text-gray-700`}>{t("account.notConfigured")}</p>
-      </div>
-    );
-  }
+        <section className="flex items-start gap-4 rounded-3xl bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-white shadow-sm">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl" aria-hidden="true">
+            👤
+          </span>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">{t("guest.title")}</h2>
+            <p className="text-sm leading-relaxed text-emerald-50">{t("guest.text")}</p>
+          </div>
+        </section>
 
-  if (state.kind === "signedOut") {
-    // FR-A-01
-    return (
-      <div className="space-y-4">
-        <h1 className={heading}>{t("account.title")}</h1>
-        <div className={`${card} space-y-4 text-center`}>
-          <p className="text-gray-800">{t("account.signInPrompt")}</p>
-          <button
-            type="button"
-            className={btnPrimary}
-            onClick={() => setIsModalOpen(true)}
-          >
-            {t("signInGoogle")}
-          </button>
-          <p className="text-xs text-gray-600">{t("account.signInPrivacy")}</p>
-        </div>
-        <AuthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+        {state.kind === "signedOut" && (
+          <div className={`${card} space-y-3 text-center`}>
+            <p className="text-gray-800">{t("account.signInPrompt")}</p>
+            <button
+              type="button"
+              className={btnPrimary}
+              onClick={() => setIsModalOpen(true)}
+            >
+              {t("signInGoogle")}
+            </button>
+            <p className="text-xs text-gray-600">{t("account.signInPrivacy")}</p>
+            <AuthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+          </div>
+        )}
+
+        <GuestHistory />
       </div>
     );
   }
@@ -112,10 +118,17 @@ export default function AccountView({ state }: { state: AccountState }) {
               <ul className="space-y-3">
                 {state.orders.map((order) => (
                   <li key={order.id} className="rounded-2xl border border-black/5 p-3">
-                    <div className="flex flex-wrap justify-between gap-2 text-sm">
-                      <time dateTime={order.createdAt} className="text-gray-600">
-                        {formatDate(order.createdAt)}
-                      </time>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="flex flex-wrap items-center gap-2">
+                        {order.ref && (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider text-emerald-800">
+                            {order.ref}
+                          </span>
+                        )}
+                        <time dateTime={order.createdAt} className="text-gray-600">
+                          {formatDate(order.createdAt)}
+                        </time>
+                      </span>
                       <span className="font-bold text-gray-900">
                         {formatLKR(order.total)}
                       </span>

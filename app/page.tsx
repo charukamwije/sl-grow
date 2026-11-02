@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import PlannerWizard from "@/components/planner/PlannerWizard";
-import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import LandingPage from "@/components/landing/LandingPage";
+import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: { absolute: SITE_NAME },
+  title: { absolute: SITE_TITLE },
   description: SITE_DESCRIPTION,
 };
 
-export default function PlannerPage() {
-  return <PlannerWizard />;
+export default function HomePage() {
+  return <LandingPage />;
 }

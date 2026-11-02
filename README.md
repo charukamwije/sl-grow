@@ -1,4 +1,4 @@
-# Home Veggie Shop & Planner
+# Aswedduma (අස්වැද්දුම)
 
 A web app for Sri Lankan households that want to grow vegetables at home. It works out what a family eats, what that costs at the market, what fits in their space, what to buy, and what they save. Customers buy seedlings, containers and supplies and send the order to the shop on WhatsApp. It has step-by-step grow guides, works in English, Sinhala and Tamil, and has a Plantation section that estimates the return on planting Ceylon cinnamon or tea.
 
@@ -6,12 +6,14 @@ The full requirements are in [docs/SRS.md](docs/SRS.md).
 
 ## Features
 
-- **Planner** (`/`): four steps covering home, vegetables, amounts and prices. The results show consumption, market cost, a grow plan that fills the space by value per sq ft, a shopping list at shop prices, savings with payback time, and health notes.
+- **Landing page** (`/`): what the app does, Sri Lanka's Maha and Yala seasons and growing zones, charts built from the planner's data (days to first harvest, value per sq ft), and buttons to the planner and shop.
+- **Planner** (`/planner`): four steps covering home, vegetables, amounts and prices. The results show consumption, market cost, a grow plan that fills the space by value per sq ft, a shopping list at shop prices, savings with payback time, and health notes.
 - **Shop** (`/shop`): about 50 products in 7 categories, with search and product codes (e.g. `F-COMPOST`).
-- **Cart and checkout** (`/cart`): the cart is kept on the device. Checkout opens WhatsApp with a pre-filled English order message.
+- **Cart and checkout** (`/cart`): the cart is kept on the device. Checkout gives each order a short reference such as `ASW-7K3P9Q` and opens WhatsApp with a pre-filled English order message that includes it. The reference is shown on screen with a Copy button, so the customer can quote it to follow up.
 - **Grow guides** (`/guides`): package arrival, soil preparation, and one guide for each of 11 vegetables, with figures and an Add button for each recommended product.
 - **Plantation** (`/plantation`): Cinnamon or Tea, entered in hectares or acres. Shows setup cost, payback year, NPV, IRR, break-even price, workers needed and a yearly money table. Every assumption can be edited, and you can send an enquiry on WhatsApp.
-- **Accounts** (`/account`, optional): Google sign-in. Signed-in customers get a cloud cart that is merged across devices, plus order history and saved plans.
+- **Guests can do everything**: no account is needed. A guest's orders (with their references) and saved plans are kept on their device and listed on the Account page. Their name, phone and address are never stored.
+- **Accounts** (`/account`, optional): Google sign-in, once Firebase is set up. Signed-in customers also get a cloud cart merged across devices, plus order history and saved plans in their account.
 - **Languages**: English, සිංහල and தமிழ் for everything except the Plantation section, which is English only for now. WhatsApp orders are always in English.
 
 ## Getting started
@@ -103,7 +105,8 @@ These rules come from the original boilerplate and are unchanged:
 
 ```
 app/
-  page.tsx                 Planner
+  page.tsx                 Landing page
+  planner/                 Planner
   shop/, cart/, guides/, plantation/, account/
   api/auth/                Sign in, sign out, current user and account deletion
   api/cart/                Cloud cart read/replace; cart/merge on sign-in

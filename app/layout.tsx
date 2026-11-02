@@ -10,7 +10,13 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { getServerUser } from "@/lib/firebase/auth-server";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_SHORT_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/site";
 
 // Fonts are downloaded at build time and served from this site, so the page
 // makes no request to Google Fonts at runtime (NFR-08)
@@ -24,8 +30,8 @@ const tamil = Noto_Sans_Tamil({ variable: "--font-tamil", subsets: ["tamil"] });
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: SITE_NAME,
-    template: `%s | ${SITE_NAME}`,
+    default: SITE_TITLE,
+    template: `%s · ${SITE_SHORT_NAME}`,
   },
   description: SITE_DESCRIPTION,
   openGraph: {
@@ -36,7 +42,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#166534",
+  themeColor: "#059669",
+  // Lets the bottom bars pad themselves clear of the iPhone home indicator
+  viewportFit: "cover",
 };
 
 // Every page depends on the session cookie for the header and cart sync
@@ -50,7 +58,17 @@ export default async function RootLayout({
   const user = await getServerUser();
 
   return (
-    <html lang="en">
+    // `suppressHydrationWarning`: the inline script below adds the `js` class
+    // before React hydrates, which would otherwise read as a mismatch
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Lets CSS hide scroll-reveal content only when script is running */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "document.documentElement.classList.add(\"js\")",
+          }}
+        />
+      </head>
       <body
         className={`${latin.variable} ${sinhala.variable} ${tamil.variable} antialiased`}
       >
@@ -72,7 +90,7 @@ export default async function RootLayout({
                 <CartProvider uid={user?.uid ?? null}>
                   <div className="flex min-h-screen flex-col">
                     <Header />
-                    <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 md:pb-10 md:pt-8">
+                    <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 md:pt-8">
                       {children}
                     </main>
                     <Footer />

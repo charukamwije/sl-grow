@@ -131,7 +131,7 @@ export default function PlannerWizard() {
   const back = () => goTo(Math.max(step - 1, 0));
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <header className="space-y-2">
         <p className={eyebrow}>🌱 {t("tagline")}</p>
         <h1 className={heading}>{t("planner.title")}</h1>
@@ -162,8 +162,16 @@ export default function PlannerWizard() {
               max={30}
               onChange={(people) => setForm((prev) => ({ ...prev, people }))}
             />
-            <p className="text-center text-2xl tracking-widest" aria-hidden="true">
-              {"🧑".repeat(Math.min(Math.max(1, Math.floor(toAmount(form.people))), 12))}
+            <p
+              className="flex flex-wrap justify-center gap-1 text-xl sm:text-2xl"
+              aria-hidden="true"
+            >
+              {Array.from(
+                { length: Math.min(Math.max(1, Math.floor(toAmount(form.people))), 10) },
+                (_, i) => (
+                  <span key={i}>🧑</span>
+                )
+              )}
             </p>
           </div>
 
@@ -285,33 +293,47 @@ export default function PlannerWizard() {
                     </span>
                     <h3 className="font-semibold text-gray-900">{name}</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-gray-50 p-2">
-                      <p className="mb-1 text-center text-[11px] font-medium text-gray-500">
-                        {t("unit.gWeek")}
-                      </p>
-                      <NumberStepper
-                        id={`grams-${veg.id}`}
-                        label={`${name}: ${t("gramsPerWeek")}`}
-                        value={form.veg[veg.id].grams}
-                        step={25}
-                        size="sm"
-                        onChange={(grams) => setVeg(veg.id, { grams })}
-                      />
-                    </div>
-                    <div className="rounded-2xl bg-gray-50 p-2">
-                      <p className="mb-1 text-center text-[11px] font-medium text-gray-500">
-                        {t("unit.rsKg")}
-                      </p>
-                      <NumberStepper
-                        id={`price-${veg.id}`}
-                        label={`${name}: ${t("pricePerKg")}`}
-                        value={form.veg[veg.id].price}
-                        step={50}
-                        size="sm"
-                        onChange={(price) => setVeg(veg.id, { price })}
-                      />
-                    </div>
+                  {/* One row per value: label on the left, stepper on the
+                      right, so it fits a 320 px screen without squeezing */}
+                  <div className="space-y-2">
+                    {[
+                      {
+                        key: "grams" as const,
+                        unit: t("unit.gWeek"),
+                        label: t("gramsPerWeek"),
+                        step: 25,
+                      },
+                      {
+                        key: "price" as const,
+                        unit: t("unit.rsKg"),
+                        label: t("pricePerKg"),
+                        step: 50,
+                      },
+                    ].map((field) => (
+                      <div
+                        key={field.key}
+                        className="flex items-center justify-between gap-2 rounded-2xl bg-gray-50 py-1.5 pl-3 pr-1.5"
+                      >
+                        <span className="min-w-0 text-xs font-medium text-gray-500">
+                          {field.unit}
+                        </span>
+                        <div className="w-36 shrink-0">
+                          <NumberStepper
+                            id={`${field.key}-${veg.id}`}
+                            label={`${name}: ${field.label}`}
+                            value={form.veg[veg.id][field.key]}
+                            step={field.step}
+                            size="sm"
+                            onChange={(value) =>
+                              setVeg(
+                                veg.id,
+                                field.key === "grams" ? { grams: value } : { price: value }
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </li>
               );
@@ -323,8 +345,8 @@ export default function PlannerWizard() {
       {step === 3 && plan && <PlanResults plan={plan} inputs={inputs} />}
 
       {/* Sticky action bar, within thumb reach on a phone */}
-      <div className="fixed inset-x-0 bottom-16 z-10 border-t border-black/5 bg-white/90 backdrop-blur md:bottom-0">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+      <div className="sticky bottom-0 z-10 -mx-4 border-t border-black/5 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:mx-0 sm:rounded-3xl sm:border sm:shadow-lg">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
           {step > 0 ? (
             <button type="button" className={btnSecondary} onClick={back}>
               <ArrowLeftIcon className="h-4 w-4" />

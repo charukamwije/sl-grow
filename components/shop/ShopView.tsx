@@ -47,7 +47,7 @@ export default function ShopView() {
     <div className="space-y-5">
       <h1 className={heading}>{t("shop.title")}</h1>
 
-      <div className="sticky top-16 z-10 -mx-4 space-y-3 bg-background/90 px-4 pb-3 pt-1 backdrop-blur md:top-[7.5rem]">
+      <div className="sticky top-16 z-10 -mx-4 space-y-3 bg-background/90 px-4 pb-3 pt-1 backdrop-blur">
         <div className="relative">
           <MagnifyingGlassIcon
             className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
@@ -59,7 +59,7 @@ export default function ShopView() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("shop.search")}
             aria-label={t("shop.search")}
-            className="w-full rounded-full border-0 bg-white py-3 pl-12 pr-4 text-sm text-gray-900 shadow-sm ring-1 ring-black/5 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full rounded-full border-0 bg-white py-3 pl-12 pr-4 text-base text-gray-900 sm:text-sm shadow-sm ring-1 ring-black/5 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
@@ -116,7 +116,7 @@ export default function ShopView() {
                 </div>
 
                 <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
-                  <p className="text-[11px] text-gray-500">
+                  <p className="truncate text-[11px] text-gray-500">
                     {t(`cat.${product.category}`)} · <code>{productCode(product.id)}</code>
                   </p>
                   <h2 className="text-sm font-semibold leading-snug text-gray-900">{name}</h2>

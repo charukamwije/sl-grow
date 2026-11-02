@@ -42,7 +42,7 @@ export default function TextField({
     required,
     "aria-describedby": hint ? `${id}-hint` : undefined,
     className:
-      "peer block w-full rounded-2xl border-0 bg-gray-50 px-4 pb-2.5 pt-6 text-sm text-gray-900 ring-1 ring-inset ring-gray-200 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500",
+      "peer block w-full rounded-2xl border-0 bg-gray-50 px-4 pb-2.5 pt-6 text-base text-gray-900 sm:text-sm ring-1 ring-inset ring-gray-200 transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500",
   };
 
   return (

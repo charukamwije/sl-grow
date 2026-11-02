@@ -33,7 +33,7 @@ export default function Segmented<T extends string>({
           return (
             <label
               key={option.value}
-              className={`relative flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-500 ${
+              className={`relative flex min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 py-2 text-center text-sm font-medium leading-tight transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-500 ${
                 checked
                   ? "bg-white text-emerald-700 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"

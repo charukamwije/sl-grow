@@ -35,10 +35,15 @@ export function validateCheckout(
   return null;
 }
 
-/** FR-O-04 */
-export function buildOrderMessage(details: CheckoutDetails, cart: Cart): string {
+/** FR-O-04, with the order reference the customer quotes to follow up */
+export function buildOrderMessage(
+  details: CheckoutDetails,
+  cart: Cart,
+  ref: string
+): string {
   const lines = [
-    "New order - Home Veggie Shop",
+    "New order - Aswedduma",
+    `Reference: ${ref}`,
     "",
     `Name: ${details.name.trim()}`,
     `Phone: ${details.phone.trim()}`,
@@ -75,7 +80,7 @@ export function buildEnquiryMessage(
   acres: number
 ): string {
   return [
-    "Plantation enquiry - Home Veggie Shop",
+    "Plantation enquiry - Aswedduma",
     "",
     `Crop: ${cropName}`,
     `Land size: ${hectares.toFixed(2)} ha (${acres.toFixed(2)} acres)`,

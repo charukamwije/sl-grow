@@ -23,7 +23,7 @@ export const chip = (active: boolean) =>
       : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50"
   }`;
 
-export const input = `w-full rounded-2xl border-0 bg-gray-50 px-4 py-3 text-sm text-gray-900 ring-1 ring-inset ring-gray-200 transition placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500`;
+export const input = `w-full rounded-2xl border-0 bg-gray-50 px-4 py-3 text-base text-gray-900 ring-1 ring-inset ring-gray-200 transition placeholder:text-gray-400 sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500`;
 
 export const label = "mb-1.5 block text-sm font-medium text-gray-700";
 

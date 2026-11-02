@@ -110,6 +110,35 @@ describe("POST /api/orders", () => {
     );
   });
 
+  it("stores the reference the customer was given in WhatsApp", async () => {
+    givenSession("user-1");
+
+    const response = await POST(
+      orderRequest({ details, cart: { s_tomato: 1 }, ref: "ASW-7K3P9Q" })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ success: true, ref: "ASW-7K3P9Q" });
+    expect(firestoreDouble.add).toHaveBeenCalledWith(
+      "users/user-1/orders",
+      expect.objectContaining({ ref: "ASW-7K3P9Q" })
+    );
+  });
+
+  it("replaces a malformed reference instead of storing it", async () => {
+    givenSession("user-1");
+
+    const response = await POST(
+      orderRequest({ details, cart: { s_tomato: 1 }, ref: "<script>" })
+    );
+
+    const { ref } = await response.json();
+    expect(ref).toMatch(/^ASW-[2-9A-HJKMNP-TW-Z]{6}$/);
+    expect(firestoreDouble.add).toHaveBeenCalledWith(
+      "users/user-1/orders",
+      expect.objectContaining({ ref })
+    );
+  });
+
   it("refuses an order without a name or phone", async () => {
     givenSession("user-1");
 

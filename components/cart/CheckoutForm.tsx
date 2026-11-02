@@ -5,7 +5,12 @@ import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
 import { useSession } from "@/contexts/session-context";
+import { CheckCircleIcon } from "@heroicons/react/20/solid";
+import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { deviceOrders } from "@/lib/device-history";
 import type { StringKey } from "@/lib/i18n/strings";
+import { generateOrderRef } from "@/lib/order/reference";
+import { cartTotal, getProduct, lineTotal, productCode } from "@/lib/products";
 import {
   buildOrderMessage,
   validateCheckout,
@@ -45,6 +50,18 @@ export default function CheckoutForm() {
   const { addErrorNotification, addSuccessNotification, addInfoNotification } =
     useNotification();
   const [details, setDetails] = useState<CheckoutDetails>(EMPTY);
+  const [sentRef, setSentRef] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyRef = async () => {
+    if (!sentRef) return;
+    try {
+      await navigator.clipboard.writeText(sentRef);
+      setCopied(true);
+    } catch {
+      // Clipboard blocked: the reference is on screen to copy by hand
+    }
+  };
 
   const update = (field: keyof CheckoutDetails, value: string) =>
     setDetails((prev) => ({ ...prev, [field]: value }));
@@ -58,16 +75,35 @@ export default function CheckoutForm() {
       return;
     }
 
+    const ref = generateOrderRef();
+
     // Opened synchronously inside the click so mobile popup blockers allow
-    // it; the account save below runs alongside instead of before
-    window.open(waLink(buildOrderMessage(details, cart)), "_blank", "noopener");
+    // it; the saves below run alongside instead of before
+    window.open(waLink(buildOrderMessage(details, cart, ref)), "_blank", "noopener");
     addInfoNotification(t("orderOpened"));
+
+    // Kept on this device for every customer, guest or not, so the
+    // reference can be found again under Account
+    deviceOrders.add({
+      ref,
+      createdAt: new Date().toISOString(),
+      method: details.method,
+      items: Object.entries(cart).flatMap(([id, qty]) => {
+        const product = getProduct(id);
+        return product
+          ? [{ code: productCode(id), name: product.name.en, qty, lineTotal: lineTotal(id, qty) }]
+          : [];
+      }),
+      total: cartTotal(cart),
+    });
+    setSentRef(ref);
+    setCopied(false);
 
     if (user) {
       fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ details, cart }),
+        body: JSON.stringify({ details, cart, ref }),
         // Finishes even if the customer leaves for WhatsApp straight away
         keepalive: true,
       })
@@ -84,8 +120,40 @@ export default function CheckoutForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`${card} space-y-4`} noValidate>
+    <form
+      id="checkout"
+      onSubmit={handleSubmit}
+      className={`${card} scroll-mt-24 space-y-4`}
+      noValidate
+    >
       <h2 className={`${subheading} !mb-1`}>{t("checkout.title")}</h2>
+
+      {sentRef && (
+        <div
+          role="status"
+          className="animate-fade-up rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200"
+        >
+          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+            <CheckCircleIcon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+            {t("order.sentTitle")}
+          </p>
+          <p className="mt-3 text-xs font-medium text-emerald-800">{t("order.refLabel")}</p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="font-mono text-2xl font-bold tracking-wider text-gray-900">
+              {sentRef}
+            </span>
+            <button
+              type="button"
+              onClick={copyRef}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+            >
+              <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
+              {copied ? t("copied") : t("copy")}
+            </button>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-emerald-800">{t("order.refHint")}</p>
+        </div>
+      )}
 
       <Segmented<CheckoutMethod>
         name="method"

@@ -152,7 +152,7 @@ export default function PlantationWizard() {
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <header className="space-y-2">
         <p className={eyebrow}>🌴 Large-scale planting</p>
         <h1 className={heading}>Plantation investment</h1>
@@ -253,7 +253,7 @@ export default function PlantationWizard() {
             ].map(([term, value]) => (
               <div key={term} className="rounded-3xl bg-gradient-to-br from-emerald-600 to-green-800 p-4 text-white shadow-sm">
                 <p className="text-xs opacity-90">{term}</p>
-                <p className="text-lg font-bold">{value}</p>
+                <p className="break-words text-base font-bold sm:text-lg">{value}</p>
               </div>
             ))}
           </section>
@@ -430,8 +430,8 @@ export default function PlantationWizard() {
       )}
 
       {/* Sticky action bar, within thumb reach on a phone */}
-      <div className="fixed inset-x-0 bottom-16 z-10 border-t border-black/5 bg-white/90 backdrop-blur md:bottom-0">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-3">
+      <div className="sticky bottom-0 z-10 -mx-4 border-t border-black/5 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:mx-0 sm:rounded-3xl sm:border sm:shadow-lg">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
           {step > 0 ? (
             <button
               type="button"

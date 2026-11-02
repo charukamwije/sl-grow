@@ -10,7 +10,11 @@ export const SITE_URL = (
   (vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000")
 ).replace(/\/+$/, "");
 
-export const SITE_NAME = "Home Veggie Shop & Planner";
+export const SITE_NAME = "Aswedduma";
+
+// The browser tab on the home page: the name, then what the site is for
+export const SITE_TITLE = "Aswedduma · Grow Your Own Vegetables in Sri Lanka";
+export const SITE_SHORT_NAME = SITE_NAME;
 
 export const SITE_DESCRIPTION =
   "Plan a home vegetable garden in Sri Lanka, see what it costs and saves, buy seedlings and supplies, and order on WhatsApp. In English, Sinhala and Tamil.";

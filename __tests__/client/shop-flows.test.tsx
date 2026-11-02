@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import AccountView from "@/components/account/AccountView";
 import CartView from "@/components/cart/CartView";
 import Header from "@/components/layout/Header";
 import PlannerWizard from "@/components/planner/PlannerWizard";
@@ -13,6 +14,7 @@ import { CART_STORAGE_KEY, CartProvider } from "@/contexts/cart-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { NotificationProvider } from "@/contexts/notification-context";
 import { SessionProvider } from "@/contexts/session-context";
+import { DEVICE_ORDERS_KEY, DEVICE_PLANS_KEY } from "@/lib/device-history";
 import "./setup";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
@@ -141,7 +143,7 @@ describe("the planner wizard", () => {
     expect(router.push).toHaveBeenCalledWith("/cart");
   });
 
-  it("asks a guest to sign in before saving a plan (AC-18)", async () => {
+  it("saves a guest's plan on the device (AC-18)", async () => {
     renderApp(<PlannerWizard />);
 
     await userEvent.click(screen.getByRole("button", { name: /next/i }));
@@ -150,10 +152,14 @@ describe("the planner wizard", () => {
     await userEvent.click(screen.getByRole("button", { name: /save this plan/i }));
 
     expect(
-      await screen.findByText("Please sign in to save your plan.")
+      await screen.findByText("Plan saved on this device. Find it under Account.")
     ).toBeInTheDocument();
-    expect(router.push).toHaveBeenCalledWith("/account");
+    const plans = JSON.parse(localStorage.getItem(DEVICE_PLANS_KEY)!);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ people: 4, space: 60 });
+    expect(plans[0].id).toMatch(/^PLAN-/);
     expect(fetch).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
   });
 });
 
@@ -189,6 +195,64 @@ describe("the shop", () => {
 
     expect(storedCart()).toEqual({ s_tomato: 1 });
     expect(screen.getByRole("link", { name: /cart/i })).toHaveTextContent("1");
+  });
+});
+
+describe("the Account page for guests", () => {
+  it("shows the guest panel and the orders and plans kept on this device", () => {
+    localStorage.setItem(
+      DEVICE_ORDERS_KEY,
+      JSON.stringify([
+        {
+          ref: "ASW-7K3P9Q",
+          createdAt: "2026-11-02T10:15:00.000Z",
+          method: "delivery",
+          items: [{ code: "S-TOMATO", name: "Tomato seedling (Thakkali)", qty: 2, lineTotal: 160 }],
+          total: 160,
+        },
+      ])
+    );
+    localStorage.setItem(
+      DEVICE_PLANS_KEY,
+      JSON.stringify([
+        { id: "PLAN-222222", createdAt: "2026-11-02T09:00:00.000Z", people: 4, space: 60, total: 15990 },
+      ])
+    );
+
+    renderApp(<AccountView state={{ kind: "disabled" }} />);
+
+    expect(
+      screen.getByRole("heading", { name: "You're using Aswedduma as a guest" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("ASW-7K3P9Q")).toBeInTheDocument();
+    expect(screen.getByText(/2026-11-02 10:15 UTC/)).toBeInTheDocument();
+    expect(screen.getByText(/4 people · 60 sq ft/)).toBeInTheDocument();
+    // No sign-in offered while accounts are not set up
+    expect(screen.queryByRole("button", { name: /sign in with google/i })).not.toBeInTheDocument();
+  });
+
+  it("invites a guest to start when there is nothing on the device yet", () => {
+    renderApp(<AccountView state={{ kind: "disabled" }} />);
+
+    expect(screen.getByText("No orders yet.")).toBeInTheDocument();
+    expect(screen.getByText("No saved plans yet.")).toBeInTheDocument();
+  });
+});
+
+describe("the app bar menu on phones", () => {
+  it("opens with every main tab and closes once one is chosen (NFR-02)", async () => {
+    renderApp(<Header />);
+
+    expect(document.getElementById("mobile-menu")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+
+    const menu = document.getElementById("mobile-menu")!;
+    for (const name of ["Planner", "Shop", "Grow guide", "Plantation", "Account"]) {
+      expect(within(menu).getByRole("link", { name })).toBeInTheDocument();
+    }
+
+    await userEvent.click(within(menu).getByRole("link", { name: "Shop" }));
+    expect(document.getElementById("mobile-menu")).toBeNull();
   });
 });
 
@@ -239,7 +303,7 @@ describe("checkout", () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 
-  it("opens WhatsApp with the order and saves nothing for a guest (AC-07, AC-17)", async () => {
+  it("opens WhatsApp with the order and saves nothing to a server for a guest (AC-07, AC-17)", async () => {
     renderApp(<CartView />);
 
     await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
@@ -252,6 +316,29 @@ describe("checkout", () => {
     expect(url).toContain("Name: Nimal");
     expect(url).toContain("[S-TOMATO]");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("gives the order a short reference, shows it and keeps it on the device", async () => {
+    renderApp(<CartView />);
+
+    await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
+    await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
+    await userEvent.click(screen.getByRole("button", { name: /send order/i }));
+
+    const url = decodeURIComponent(vi.mocked(window.open).mock.calls[0][0] as string);
+    const ref = url.match(/Reference: (ASW-[A-Z0-9]{6})/)![1];
+
+    // On screen, ready to quote
+    expect(screen.getByRole("status")).toHaveTextContent(ref);
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+
+    // On the device, without the customer's personal details
+    const orders = JSON.parse(localStorage.getItem(DEVICE_ORDERS_KEY)!);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({ ref, method: "pickup", total: 160 });
+    expect(orders[0].items[0]).toMatchObject({ code: "S-TOMATO", qty: 2 });
+    expect(JSON.stringify(orders[0])).not.toContain("Nimal");
+    expect(JSON.stringify(orders[0])).not.toContain("0771234567");
   });
 
   it("warns while the shop's number is still the placeholder (AC-12)", () => {

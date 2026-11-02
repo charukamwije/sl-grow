@@ -1,6 +1,6 @@
-# Software Requirements Specification (SRS): Home Veggie Shop & Planner
+# Software Requirements Specification (SRS): Aswedduma (අස්වැද්දුම)
 
-Version 3.1 · Nov 2, 2026 · Prepared by Charuka Wijethunga
+Version 3.3 · Nov 2, 2026 · Prepared by Charuka Wijethunga
 
 ## Revision history
 
@@ -10,12 +10,14 @@ Version 3.1 · Nov 2, 2026 · Prepared by Charuka Wijethunga
 | 2.0 | 2026-11-02 | Charuka Wijethunga | Added Google sign-in and accounts (Firebase), cloud cart, order history and saved plans. |
 | 3.0 | 2026-11-02 | Charuka Wijethunga | Added Plantation investment (Cinnamon and Tea). Planner and Plantation are now step by step. |
 | 3.1 | 2026-11-02 | Charuka Wijethunga | Matched the built architecture: a Next.js app whose server alone talks to Firestore, replacing the single static HTML file. Merged the v2 and v3 additions into their sections and removed scope statements they had overtaken. |
+| 3.2 | 2026-11-02 | Charuka Wijethunga | Named the product Aswedduma (අස්වැද්දුම), previously "Home Veggie Shop & Planner". |
+| 3.3 | 2026-11-02 | Charuka Wijethunga | Guests can use every function. Each order gets a short reference (FR-O-07). Guests' orders and plans are kept on their device (FR-A-07, 4.5). |
 
 ## 1. Introduction
 
 ### 1.1 Purpose
 
-This document specifies the functional and non-functional requirements of the Home Veggie Shop & Planner, a web application for Sri Lankan households. It helps a household plan a home vegetable garden, estimate its food cost, buy the seeds, seedlings, containers and supplies it needs, follow step-by-step grow guides, and send the order to the shop through WhatsApp. It also helps a plantation investor estimate the return on planting Ceylon cinnamon or tea.
+This document specifies the functional and non-functional requirements of Aswedduma (අස්වැද්දුම), a home vegetable garden shop and planner: a web application for Sri Lankan households. It helps a household plan a home vegetable garden, estimate its food cost, buy the seeds, seedlings, containers and supplies it needs, follow step-by-step grow guides, and send the order to the shop through WhatsApp. It also helps a plantation investor estimate the return on planting Ceylon cinnamon or tea.
 
 ### 1.2 Scope
 
@@ -188,6 +190,7 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 | FR-O-04 | Sending the order shall open WhatsApp (wa.me link to the shop number) with a pre-filled message containing customer name, phone, method, address (if delivery), each item with product code, quantity and line total, total before delivery, and notes. | M |
 | FR-O-05 | The order message shall be in English, whatever language the customer uses. | M |
 | FR-O-06 | A guest's order shall not be stored on any server; the shop receives it only through WhatsApp. A signed-in customer's order is also saved to their account (FR-A-05). | M |
+| FR-O-07 | Each order shall get a short reference, e.g. ASW-7K3P9Q: "ASW-" and six characters that cannot be misread (no 0/O, 1/I/L or U/V). It shall appear in the WhatsApp message, on screen after sending (with a Copy button) and on the Account page. The customer quotes it to the shop to follow up. | M |
 
 ### 3.10 Grow guides
 
@@ -226,7 +229,7 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 | FR-A-04 | The cart shall be saved to the customer's account after each change. On sign-in, the cloud cart shall be merged with the device cart, keeping the larger quantity for each product (BR-20). | M |
 | FR-A-05 | When a signed-in customer sends an order, the order shall be saved with their user ID, customer details, items with codes, quantities and prices, method, and total (BR-21). | M |
 | FR-A-06 | The Account page shall list the customer's own orders, newest first, with date, items and total. | M |
-| FR-A-07 | Saving a plan requires sign-in. A signed-out user who presses Save shall see a message and be taken to the Account page. | M |
+| FR-A-07 | Anyone can save a plan. A guest's plan is saved on their device and listed on the Account page; a signed-in customer's plan is saved to their account (FR-A-08). | M |
 | FR-A-08 | Signed-in customers can save planner results and see them under My saved plans, with date, people, space and total. | M |
 | FR-A-09 | Signing out returns the app to guest mode. The device cart stays on the device. | S |
 | FR-A-10 | If Firebase is not configured, the Account page shall show a setup message, and the rest of the app shall work in guest mode. | M |
@@ -274,7 +277,9 @@ Each guide contains names and, for the package and soil guides, time text in thr
 ### 4.5 Stored browser data
 
 - Key `hvs_cart`: JSON map of product ID to quantity
-- No other data is saved in the browser. Customer details entered at checkout are not saved.
+- Key `aswedduma_orders`: the last 50 orders sent from this device, each with its reference, date, method, items (code, name, quantity, line total) and total
+- Key `aswedduma_plans`: the last 50 plans a guest saved, each with an ID, date, people, space and shopping-list total
+- No other data is saved in the browser. The customer's name, phone, address and notes are never saved on the device.
 
 ### 4.6 Data sensitivity
 
@@ -412,12 +417,13 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | AC-15 | Send an order while signed in | Order appears in My orders with items and total. WhatsApp window opens |
 | AC-16 | Signed in as customer A, try to read customer B's order | Access denied |
 | AC-17 | Send an order as a guest | WhatsApp window opens. No order is saved to any account |
-| AC-18 | Press Save this plan while signed out | Message asks to sign in. Account page opens |
+| AC-18 | Press Save this plan as a guest | Message confirms the plan was saved on the device. It is listed under My saved plans on the Account page |
 | AC-19 | Firebase not configured | Account page shows the setup message. Shop works in guest mode |
 | AC-20 | Planner step 1 with space 0, then Next | Message asks for the space. Step does not change. Back returns to the previous step |
 | AC-21 | Planner step 2 with no vegetable ticked, then Next | Message asks for a vegetable. Step does not change |
 | AC-22 | Plantation: change the land size | All four result cards update at once. Payback and NPV match a hand calculation for one case |
 | AC-23 | Plantation: send an enquiry | WhatsApp opens with the crop and land size in the message |
+| AC-24 | Send an order as a guest | WhatsApp message and the confirmation on screen show the same ASW- reference. The Account page lists the order under that reference |
 
 ## 9. Open Issues and Future Work
 
