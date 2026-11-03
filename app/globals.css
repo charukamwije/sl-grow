@@ -100,12 +100,13 @@ body {
 
 /* Children of a revealed block arrive one after another */
 .js .reveal-stagger > * {
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.6s ease, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .js .reveal-stagger:not([data-visible]) > * {
   opacity: 0;
-  transform: translateY(24px);
+  transform: perspective(1000px) rotateX(24deg) translateY(36px);
+  transform-origin: 50% 0;
 }
 
 .js .reveal-stagger[data-visible] > *:nth-child(2) { transition-delay: 0.08s; }
@@ -220,14 +221,79 @@ body {
   animation: plant-drip 1.6s ease-in infinite;
 }
 
-/* The hero story's progress bar: fills over one beat (duration set inline) */
-@keyframes story-fill {
-  from { width: 0; }
-  to { width: 100%; }
+/* ---- Hero story scenes ------------------------------------------------- */
+/* Side-on: the truck drives left to right along the road, from the fields
+   to the shop, then comes round again */
+@keyframes truck-drive {
+  0% { transform: translateX(-190px); opacity: 0; }
+  8% { opacity: 1; }
+  82% { transform: translateX(140px); opacity: 1; }
+  92%, 100% { transform: translateX(150px); opacity: 0; }
+}
+@keyframes truck-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+@keyframes cloud-drift {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(10px); }
 }
 
-.story-fill {
-  animation-name: story-fill;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
+.truck-drive {
+  animation: truck-drive 5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.truck-bounce {
+  animation: truck-bounce 0.35s ease-in-out infinite;
+}
+
+.wheel-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: plant-spin 0.6s linear infinite;
+}
+
+.cloud-drift {
+  animation: cloud-drift 6s ease-in-out infinite;
+}
+
+/* The scene cube: each face turns about the cube's centre, half its width
+   behind the face (container query units, so it follows the card's size) */
+.scene-cube {
+  container-type: inline-size;
+  perspective: 1400px;
+}
+
+.scene-face {
+  transform-origin: 50% 50% -50cqw;
+  backface-visibility: hidden;
+}
+
+/* Sections swing up into place in 3D as they scroll into view */
+.js .reveal-3d {
+  transform-origin: 50% 0;
+  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.js .reveal-3d:not([data-visible]) {
+  opacity: 0;
+  transform: perspective(1400px) rotateX(18deg) translateY(60px) scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal-3d:not([data-visible]) {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Digital badges (Join page) --------------------------------------- */
+@keyframes badge-shine {
+  0%, 70% { transform: translateX(0) skewX(-20deg); }
+  100% { transform: translateX(340px) skewX(-20deg); }
+}
+
+.badge-shine {
+  animation: badge-shine 4.5s ease-in-out infinite;
 }

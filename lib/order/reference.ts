@@ -27,3 +27,10 @@ export function generateOrderRef(
 export function isOrderRef(value: unknown): value is string {
   return typeof value === "string" && PATTERN.test(value);
 }
+
+export const APPLICATION_REF_PREFIX = "APP-";
+
+/** Certification applications (Join page), e.g. APP-7K3P9Q */
+export function generateApplicationRef(): string {
+  return generateOrderRef().replace(ORDER_REF_PREFIX, APPLICATION_REF_PREFIX);
+}

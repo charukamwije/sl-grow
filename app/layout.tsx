@@ -88,7 +88,7 @@ export default async function RootLayout({
             <LanguageProvider>
               <AuthProvider>
                 <CartProvider uid={user?.uid ?? null}>
-                  <div className="flex min-h-screen flex-col">
+                  <div className="flex min-h-screen flex-col overflow-x-clip">
                     <Header />
                     <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 md:pt-8">
                       {children}

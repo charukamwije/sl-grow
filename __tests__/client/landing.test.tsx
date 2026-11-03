@@ -67,31 +67,51 @@ describe("the landing page", () => {
     }
   });
 
-  it("can be paused, and jumps to a beat when its bar is chosen", () => {
+  it("has no story controls, and holds still while the hero is hovered", () => {
     vi.useFakeTimers();
     try {
       render(<LandingPage />);
 
-      fireEvent.click(screen.getByRole("button", { name: "Pause the story" }));
+      expect(screen.queryByRole("button", { name: /pause/i })).not.toBeInTheDocument();
+
+      const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+      fireEvent.mouseEnter(hero);
       act(() => vi.advanceTimersByTime(BEAT_MS * 3));
       expect(shownBeat()).toBe(STORY_TEXT[0]);
 
-      fireEvent.click(screen.getByRole("button", { name: "Show: The answer" }));
-      expect(shownBeat()).toBe(STORY_TEXT[2]);
-      expect(screen.getByRole("button", { name: "Play the story" })).toBeInTheDocument();
+      // Moving away lets the story carry on
+      fireEvent.mouseLeave(hero);
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(shownBeat()).toBe(STORY_TEXT[1]);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("shows a growing plant beside the story", () => {
-    render(<LandingPage />);
+  it("turns the scene cube to the picture for each beat", () => {
+    vi.useFakeTimers();
+    try {
+      render(<LandingPage />);
 
-    expect(
-      screen.getByRole("img", { name: /tomato plant growing in a grow bag/i })
-    ).toBeInTheDocument();
-    // The harvest label uses the tomato's days to harvest from the planner data
-    expect(screen.getByText("Day 75")).toBeInTheDocument();
+      // Only the face for the current beat is exposed; the others are turned away
+      const island = /Sri Lanka under the sun/i;
+      const road = /truck carrying vegetables/i;
+      const plant = /tomato plant growing in a grow bag/i;
+
+      expect(screen.getByRole("img", { name: island })).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: road })).not.toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(screen.getByRole("img", { name: road })).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: island })).not.toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(BEAT_MS));
+      expect(screen.getByRole("img", { name: plant })).toBeInTheDocument();
+      // The harvest label uses the tomato's days to harvest from the planner data
+      expect(screen.getByText("Day 75")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("tells the grow-your-own story with the planner's own savings figure", () => {

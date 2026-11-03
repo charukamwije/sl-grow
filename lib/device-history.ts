@@ -29,13 +29,13 @@ export const DEVICE_PLANS_KEY = "aswedduma_plans";
 const MAX_ENTRIES = 50;
 const EMPTY: never[] = [];
 
-type Store<T> = {
+export type Store<T> = {
   get(): T[];
   add(entry: T): void;
   subscribe(listener: () => void): () => void;
 };
 
-function createStore<T>(key: string): Store<T> {
+export function createStore<T>(key: string): Store<T> {
   let memory: T[] = EMPTY;
   let lastRaw: string | null | undefined;
   const listeners = new Set<() => void>();
@@ -96,3 +96,15 @@ export const devicePlans = createStore<DevicePlan>(DEVICE_PLANS_KEY);
 export function useDeviceHistory<T>(store: Store<T>): T[] {
   return useSyncExternalStore(store.subscribe, store.get, () => EMPTY);
 }
+
+/** Join page: knowledge checks passed on this device (newest first) */
+export type DeviceLearning = { track: string; passedAt: string };
+
+/** Join page: certification applications sent from this device */
+export type DeviceApplication = { ref: string; track: string; createdAt: string };
+
+export const DEVICE_LEARNING_KEY = "aswedduma_learning";
+export const DEVICE_APPLICATIONS_KEY = "aswedduma_applications";
+
+export const deviceLearning = createStore<DeviceLearning>(DEVICE_LEARNING_KEY);
+export const deviceApplications = createStore<DeviceApplication>(DEVICE_APPLICATIONS_KEY);

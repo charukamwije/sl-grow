@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateOrderRef, isOrderRef } from "@/lib/order/reference";
+import { generateApplicationRef, generateOrderRef, isOrderRef } from "@/lib/order/reference";
 
 describe("generateOrderRef", () => {
   it("makes short ASW- references with six easy-to-read characters", () => {
@@ -47,4 +47,10 @@ describe("isOrderRef", () => {
       expect(isOrderRef(value)).toBe(false);
     }
   );
+});
+
+describe("generateApplicationRef", () => {
+  it("makes APP- references from the same easy-to-read alphabet", () => {
+    expect(generateApplicationRef()).toMatch(/^APP-[2-9A-HJKMNP-TW-Z]{6}$/);
+  });
 });

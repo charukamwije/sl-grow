@@ -3,27 +3,21 @@
 import Link from "next/link";
 import { ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/20/solid";
 import { useLanguage } from "@/contexts/language-context";
+import { CERT_TRACKS } from "@/lib/data/certifications";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import type { StringKey } from "@/lib/i18n/strings";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
 import { formatLKR, formatNumber, seedlingFor } from "@/lib/products";
-import { btnPrimary, btnSecondary, card, eyebrow } from "../ui/styles";
+import { btnPrimary, btnSecondary, card } from "../ui/styles";
+import DigitalBadge from "../join/DigitalBadge";
 import BarChart from "./BarChart";
 import CountUp from "./CountUp";
-import GrowingPlant from "./GrowingPlant";
+import HeroStory from "./HeroStory";
 import ProvinceMap from "./ProvinceMap";
 import Reveal from "./Reveal";
-import StoryRotator, { type StoryBeat } from "./StoryRotator";
 
 // The WHO's recommended minimum intake of fruit and vegetables
 const WHO_GRAMS_PER_DAY = 400;
-
-// The hero's story: the gift, the problem, the answer
-const STORY: StoryBeat[] = [
-  { label: "home.story1Label", text: "home.story1", icon: "☀️", tint: "bg-amber-100", labelColor: "text-amber-700" },
-  { label: "home.story2Label", text: "home.story2", icon: "🚚", tint: "bg-gray-100", labelColor: "text-gray-500" },
-  { label: "home.story3Label", text: "home.story3", icon: "🌱", tint: "bg-emerald-100", labelColor: "text-emerald-700" },
-];
 
 const ADVANTAGES:{ title: StringKey; text: StringKey; icon: string }[] = [
   { title: "home.advSun", text: "home.advSunText", icon: "☀️" },
@@ -137,39 +131,7 @@ export default function LandingPage() {
 
   return (
     <div className="space-y-20 sm:space-y-28">
-      {/* Hero */}
-      <section className="relative isolate -mx-4 -mt-6 overflow-hidden px-4 pb-6 pt-10 md:-mt-8 sm:pt-16">
-        {/* Slowly drifting colour behind the hero */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -left-24 -top-24 h-80 w-80 animate-blob rounded-full bg-emerald-200/60 blur-3xl" />
-          <div className="absolute right-0 top-20 h-72 w-72 animate-blob rounded-full bg-amber-100/80 blur-3xl [animation-delay:-6s]" />
-          <div className="absolute bottom-0 left-1/3 h-64 w-64 animate-blob rounded-full bg-lime-100/70 blur-3xl [animation-delay:-12s]" />
-        </div>
-
-        <div className="grid items-center gap-12 lg:grid-cols-[1.2fr_1fr]">
-          <div className="space-y-6">
-            <p
-              className={`${eyebrow} inline-flex animate-fade-up items-center gap-2 rounded-full bg-white px-3 py-1 shadow-sm ring-1 ring-emerald-100`}
-            >
-              <span className="inline-block animate-sway">🌴</span> {t("home.badge")}
-            </p>
-            <h1 className="animate-fade-up text-3xl font-bold leading-tight tracking-tight text-gray-900 [animation-delay:100ms] sm:text-5xl">
-              {t("home.title")}
-            </h1>
-            {/* The pitch as a three-beat story, one beat at a time, on a loop */}
-            <div className="animate-fade-up [animation-delay:250ms]">
-              <StoryRotator beats={STORY} />
-            </div>
-            <div className="animate-fade-up [animation-delay:400ms]">
-              <Ctas />
-            </div>
-          </div>
-
-          <div className="animate-fade-up [animation-delay:200ms]">
-            <GrowingPlant />
-          </div>
-        </div>
-      </section>
+      <HeroStory actions={<Ctas />} />
 
       {/* Why Sri Lanka */}
       <section className="space-y-6">
@@ -407,6 +369,34 @@ export default function LandingPage() {
           ))}
         </Reveal>
       </section>
+
+      {/* Aswedduma Certified */}
+      <Reveal as="section" className="overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-6 ring-1 ring-black/5 sm:p-10">
+        <div className="grid items-center gap-8 md:grid-cols-[1fr_auto]">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+              🏅 {t("join.badge")}
+            </p>
+            <h2 className={sectionTitle}>{t("join.homeTitle")}</h2>
+            <p className="max-w-xl leading-relaxed text-gray-600">{t("join.homeText")}</p>
+            <Link href="/join" className={`${btnPrimary} group mt-2`}>
+              {t("nav.join")}
+              <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="flex justify-center [perspective:1000px]" aria-hidden="true">
+            {CERT_TRACKS.map((track, i) => (
+              // The angle and the float sit on separate elements, because the
+              // float animation sets its own transform
+              <div key={track.id} style={{ transform: `rotateY(${(i - 1) * -20}deg)` }}>
+                <div className="animate-float" style={{ animationDelay: `${-i * 1.2}s` }}>
+                  <DigitalBadge track={track} className={i === 1 ? "w-28 sm:w-32" : "-mx-3 w-20 sm:w-24"} shine={i === 1} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Reveal>
 
       {/* Closing call to action */}
       <Reveal as="section" className="relative overflow-hidden rounded-3xl bg-gray-900 px-6 py-12 text-center sm:py-16">

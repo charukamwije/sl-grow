@@ -50,7 +50,7 @@ export default function Reveal({
     <Tag
       // The union of tag types cannot be expressed for a shared ref
       ref={ref as never}
-      className={`${stagger ? "reveal-stagger" : "reveal"} ${className}`}
+      className={`${stagger ? "reveal-stagger" : "reveal reveal-3d"} ${className}`}
     >
       {children}
     </Tag>

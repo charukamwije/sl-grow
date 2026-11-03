@@ -92,3 +92,35 @@ export function buildEnquiryMessage(
 export function waLink(message: string, number: string = OWNER_WHATSAPP): string {
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
+
+export type ApplicationDetails = {
+  name: string;
+  phone: string;
+  location: string;
+  notes: string;
+};
+
+/** Join page: a certification application, in English like orders */
+export function buildApplicationMessage(
+  trackName: string,
+  details: ApplicationDetails,
+  ref: string,
+  quizScore: string
+): string {
+  const lines = [
+    "Certification application - Aswedduma",
+    `Reference: ${ref}`,
+    "",
+    `Path: ${trackName}`,
+    `Name: ${details.name.trim()}`,
+    `Phone: ${details.phone.trim()}`,
+    `District or town: ${details.location.trim()}`,
+    `Knowledge check: passed (${quizScore})`,
+  ];
+
+  if (details.notes.trim()) {
+    lines.push("", `About me: ${details.notes.trim()}`);
+  }
+
+  return lines.join("\n");
+}

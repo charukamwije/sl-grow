@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { PauseIcon, PlayIcon } from "@heroicons/react/20/solid";
 import { useLanguage } from "@/contexts/language-context";
 import type { StringKey } from "@/lib/i18n/strings";
 
@@ -13,7 +12,7 @@ export type StoryBeat = {
   labelColor: string;
 };
 
-export const BEAT_MS = 4500;
+export const BEAT_MS = 5000;
 
 // Reduced motion as a store, so the first render matches the server (false)
 const reducedMotion = {
@@ -30,30 +29,45 @@ const reducedMotion = {
   },
 };
 
+export type StoryCycle = ReturnType<typeof useStoryCycle>;
+
 /**
- * The hero's story, one beat at a time, round and round. All beats share one
- * grid cell, so the box is as tall as the longest and nothing below it jumps.
- * It pauses while hovered or focused and has its own pause button (moving
- * content needs a way to stop it); with reduced motion every beat is shown
- * together instead.
+ * The hero's shared clock: which beat is showing, advancing every BEAT_MS
+ * round and round. The text, the 3D scene and the background all read it,
+ * so they always tell the same part of the story. It holds still while the
+ * hero is hovered or focused (so a visitor can always stop it to read), and
+ * entirely with reduced motion.
  */
-export default function StoryRotator({ beats }: { beats: StoryBeat[] }) {
-  const { t } = useLanguage();
+export function useStoryCycle(count: number) {
   const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [held, setHeld] = useState(false); // hovered or focused
+  const [held, setHeld] = useState(false);
   const reduce = useSyncExternalStore(reducedMotion.subscribe, reducedMotion.get, () => false);
 
-  const running = !paused && !held && !reduce;
+  const running = !held && !reduce;
 
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(
-      () => setActive((current) => (current + 1) % beats.length),
-      BEAT_MS
-    );
+    const timer = setInterval(() => setActive((current) => (current + 1) % count), BEAT_MS);
     return () => clearInterval(timer);
-  }, [running, beats.length]);
+  }, [running, count]);
+
+  return { active, setActive, setHeld, running, reduce };
+}
+
+/**
+ * The story text, one beat at a time. All beats share one grid cell, so the
+ * box is as tall as the longest and nothing below it jumps. With reduced
+ * motion every beat is shown together instead.
+ */
+export default function StoryRotator({
+  beats,
+  cycle,
+}: {
+  beats: StoryBeat[];
+  cycle: StoryCycle;
+}) {
+  const { t } = useLanguage();
+  const { active, reduce } = cycle;
 
   const beatBody = (beat: StoryBeat, emphasise: boolean) => (
     <div className="flex gap-4">
@@ -89,53 +103,7 @@ export default function StoryRotator({ beats }: { beats: StoryBeat[] }) {
   }
 
   return (
-    <div
-      className="max-w-xl"
-      onMouseEnter={() => setHeld(true)}
-      onMouseLeave={() => setHeld(false)}
-      onFocus={() => setHeld(true)}
-      onBlur={() => setHeld(false)}
-    >
-      {/* Progress: one bar per beat, the current one filling over its turn */}
-      <div className="mb-4 flex items-center gap-2">
-        {beats.map((beat, i) => (
-          <button
-            key={beat.text}
-            type="button"
-            onClick={() => setActive(i)}
-            aria-label={t("home.storyShow", { label: t(beat.label) })}
-            aria-current={i === active ? "step" : undefined}
-            className="group relative h-6 flex-1"
-          >
-            <span className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-gray-200 transition group-hover:bg-gray-300">
-              <span
-                // Re-keyed on every turn so the fill restarts from empty
-                key={i === active ? `on-${active}` : "off"}
-                className={`block h-full rounded-full bg-emerald-600 ${
-                  i < active ? "w-full" : i === active ? "story-fill" : "w-0"
-                }`}
-                style={
-                  i === active
-                    ? {
-                        animationDuration: `${BEAT_MS}ms`,
-                        animationPlayState: running ? "running" : "paused",
-                      }
-                    : undefined
-                }
-              />
-            </span>
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => setPaused((p) => !p)}
-          aria-label={paused ? t("home.storyPlay") : t("home.storyPause")}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
-        >
-          {paused ? <PlayIcon className="h-4 w-4" /> : <PauseIcon className="h-4 w-4" />}
-        </button>
-      </div>
-
+    <div className="max-w-xl">
       <div className="grid">
         {beats.map((beat, i) => (
           <div

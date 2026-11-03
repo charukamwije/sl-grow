@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CERT_TRACKS } from "@/lib/data/certifications";
 import { GUIDES } from "@/lib/data/guides";
 import { CATEGORIES, PRODUCTS, SHARED_SUPPLIES } from "@/lib/data/products";
 import { VEGETABLES } from "@/lib/data/vegetables";
@@ -105,6 +106,26 @@ describe("the catalogue (SRS 4.1 to 4.4)", () => {
     for (const guide of GUIDES.filter((g) => g.kind === "vegetable")) {
       expect(guide.steps.length).toBeGreaterThanOrEqual(6);
       expect(guide.steps.length).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("has certification paths with valid knowledge checks", () => {
+    for (const track of CERT_TRACKS) {
+      expect(track.lessons.length).toBeGreaterThan(0);
+      expect(track.requirements.length).toBeGreaterThan(0);
+      for (const q of track.quiz) {
+        expect(q.answer).toBeGreaterThanOrEqual(0);
+        expect(q.answer).toBeLessThan(q.options.length);
+      }
+      for (const text of [
+        track.name,
+        track.forWho,
+        ...track.lessons.flatMap((lesson) => [lesson.title, lesson.text]),
+        ...track.requirements,
+        ...track.quiz.flatMap((q) => [q.question, ...q.options]),
+      ]) {
+        expect(text.en && text.si && text.ta).toBeTruthy();
+      }
     }
   });
 

@@ -19,6 +19,7 @@ const EXPLORE: { href: string; key: StringKey }[] = [
   { href: "/shop", key: "nav.shop" },
   { href: "/guides", key: "nav.guides" },
   { href: "/plantation", key: "nav.plantation" },
+  { href: "/join", key: "nav.join" },
 ];
 
 const ORDERS: { href: string; key: StringKey }[] = [

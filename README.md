@@ -13,6 +13,7 @@ The full requirements are in [docs/SRS.md](docs/SRS.md).
 - **Grow guides** (`/guides`): package arrival, soil preparation, and one guide for each of 11 vegetables, with figures and an Add button for each recommended product.
 - **Plantation** (`/plantation`): Cinnamon or Tea, entered in hectares or acres. Shows setup cost, payback year, NPV, IRR, break-even price, workers needed and a yearly money table. Every assumption can be edited, and you can send an enquiry on WhatsApp.
 - **Guests can do everything**: no account is needed. A guest's orders (with their references) and saved plans are kept on their device and listed on the Account page. Their name, phone and address are never stored.
+- **Join** (`/join`): Aswedduma Certified. Three paths (Home Grower, Seeds, Plantation), each running Learn (lessons plus a knowledge check), Apply (requirements plus an application on WhatsApp with an `APP-` reference) and Get certified (a digital badge issued by the Aswedduma team after review). It is Aswedduma's own programme, not a government certificate.
 - **Accounts** (`/account`, optional): Google sign-in, once Firebase is set up. Signed-in customers also get a cloud cart merged across devices, plus order history and saved plans in their account.
 - **Languages**: English, සිංහල and தமிழ் for everything except the Plantation section, which is English only for now. WhatsApp orders are always in English.
 

@@ -8,6 +8,7 @@ import {
   BookOpenIcon,
   BuildingStorefrontIcon,
   ChartBarIcon,
+  AcademicCapIcon,
   ShoppingCartIcon,
   SparklesIcon,
   UserCircleIcon,
@@ -42,6 +43,7 @@ export const NAV: { href: string; key: StringKey; icon: Icon }[] = [
   { href: "/shop", key: "nav.shop", icon: BuildingStorefrontIcon },
   { href: "/guides", key: "nav.guides", icon: BookOpenIcon },
   { href: "/plantation", key: "nav.plantation", icon: ChartBarIcon },
+  { href: "/join", key: "nav.join", icon: AcademicCapIcon },
   { href: "/account", key: "nav.account", icon: UserCircleIcon },
 ];
 
@@ -128,13 +130,13 @@ export default function Header() {
                     <Link
                       href={href}
                       aria-current={active ? "page" : undefined}
-                      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition ${
+                      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition xl:px-3 ${
                         active
                           ? "bg-emerald-50 text-emerald-700"
                           : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       }`}
                     >
-                      <Icon className="h-5 w-5" aria-hidden="true" />
+                      <Icon className="hidden h-5 w-5 xl:block" aria-hidden="true" />
                       {t(key)}
                     </Link>
                   </li>

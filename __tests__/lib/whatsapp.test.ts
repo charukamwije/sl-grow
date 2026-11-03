@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildApplicationMessage,
   buildEnquiryMessage,
   buildOrderMessage,
   validateCheckout,
@@ -100,5 +101,25 @@ describe("isPlaceholderNumber (AC-12)", () => {
   it("flags the placeholder and accepts a real number", () => {
     expect(isPlaceholderNumber("94XXXXXXXXX")).toBe(true);
     expect(isPlaceholderNumber("94771234567")).toBe(false);
+  });
+});
+
+describe("buildApplicationMessage (Join page)", () => {
+  it("names the path, the applicant and the reference", () => {
+    const message = buildApplicationMessage(
+      "Aswedduma Certified Seeds",
+      { name: "Kamala", phone: "0771234567", location: "Kandy", notes: "" },
+      "APP-7K3P9Q",
+      "3/3"
+    );
+
+    expect(message.split("\n").slice(0, 2)).toEqual([
+      "Certification application - Aswedduma",
+      "Reference: APP-7K3P9Q",
+    ]);
+    expect(message).toContain("Path: Aswedduma Certified Seeds");
+    expect(message).toContain("District or town: Kandy");
+    expect(message).toContain("Knowledge check: passed (3/3)");
+    expect(message).not.toContain("About me:");
   });
 });

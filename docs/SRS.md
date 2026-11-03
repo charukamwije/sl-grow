@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS): Aswedduma (අස්වැද්දුම)
 
-Version 3.3 · Nov 2, 2026 · Prepared by Charuka Wijethunga
+Version 3.4 · Nov 3, 2026 · Prepared by Charuka Wijethunga
 
 ## Revision history
 
@@ -12,6 +12,7 @@ Version 3.3 · Nov 2, 2026 · Prepared by Charuka Wijethunga
 | 3.1 | 2026-11-02 | Charuka Wijethunga | Matched the built architecture: a Next.js app whose server alone talks to Firestore, replacing the single static HTML file. Merged the v2 and v3 additions into their sections and removed scope statements they had overtaken. |
 | 3.2 | 2026-11-02 | Charuka Wijethunga | Named the product Aswedduma (අස්වැද්දුම), previously "Home Veggie Shop & Planner". |
 | 3.3 | 2026-11-02 | Charuka Wijethunga | Guests can use every function. Each order gets a short reference (FR-O-07). Guests' orders and plans are kept on their device (FR-A-07, 4.5). |
+| 3.4 | 2026-11-03 | Charuka Wijethunga | Added the Join page: Aswedduma Certified, with Learn, Apply and Get certified steps and digital badges for home growers, seeds and plantations (3.15). |
 
 ## 1. Introduction
 
@@ -256,6 +257,19 @@ The Plantation section is for large-scale planting. It shows investment results 
 | FR-I-07 | The user shall send an enquiry (crop and land size) to the shop's WhatsApp. | M |
 | FR-I-08 | The section shall show a disclaimer that figures are planning estimates, not financial or agricultural advice. | M |
 
+### 3.15 Join: Aswedduma Certified
+
+The Join page (`/join`) is a learning and certification programme with three paths: **Certified Home Grower**, **Certified Seeds** and **Certified Plantation**. Each path runs Learn → Apply → Get certified and ends in a digital badge.
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| FR-J-01 | The page shall offer the three paths, each with who it is for and its badge. Choosing a path shows its journey. | M |
+| FR-J-02 | Learn shall show the path's lessons, linking to the matching guide, planner or plantation page where one exists, then a knowledge check. | M |
+| FR-J-03 | The application shall stay locked until every knowledge-check question is answered correctly. A wrong attempt shows the score. A pass is remembered on the device. | M |
+| FR-J-04 | Apply shall list the path's practical requirements and collect name, phone, district or town and optional notes. Sending opens WhatsApp with an application reference (e.g. APP-7K3P9Q), the path and the details. The reference is shown on screen with a Copy button and listed under Your applications. | M |
+| FR-J-05 | Get certified shall preview the path's digital badge with the applicant's name and a placeholder certificate ID. Badges and certificate IDs are issued by the Aswedduma team after review. | M |
+| FR-J-06 | The page shall state that Aswedduma Certified is Aswedduma's own programme, not a government certificate, and does not replace official seed certification by the Department of Agriculture. | M |
+
 ## 4. Data Requirements
 
 ### 4.1 Product catalogue
@@ -279,6 +293,8 @@ Each guide contains names and, for the package and soil guides, time text in thr
 - Key `hvs_cart`: JSON map of product ID to quantity
 - Key `aswedduma_orders`: the last 50 orders sent from this device, each with its reference, date, method, items (code, name, quantity, line total) and total
 - Key `aswedduma_plans`: the last 50 plans a guest saved, each with an ID, date, people, space and shopping-list total
+- Key `aswedduma_learning`: the certification paths whose knowledge check was passed on this device, with the date
+- Key `aswedduma_applications`: certification applications sent from this device, each with its reference, path and date
 - No other data is saved in the browser. The customer's name, phone, address and notes are never saved on the device.
 
 ### 4.6 Data sensitivity
@@ -451,6 +467,7 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | OI-20 | Translate the Plantation section into Sinhala and Tamil | Translation reviewer | Medium |
 | OI-21 | Set the real Firebase project settings (`FIREBASE_ADMIN_SERVICE_ACCOUNT`, `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG`) in the hosting environment | Developer | High |
 | OI-22 | Translate the sign-in, sign-out and account deletion status messages, which are English only | Translation reviewer | Low |
+| OI-23 | Certificates: decide who reviews applications, the germination and field standards for each path, and how certificate IDs are issued and verified (a public verification page needs the database) | Shop owner | High |
 
 ## 10. Approval
 
