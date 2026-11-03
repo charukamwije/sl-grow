@@ -1,12 +1,16 @@
 /**
  * ==== SHOP SETTINGS ====
  *
- * The shop's WhatsApp number in international format without "+" or spaces,
- * e.g. 94771234567. Orders and plantation enquiries are sent here (OI-02).
+ * The shop's WhatsApp Business number in international format without "+" or
+ * spaces, as wa.me links need it. Orders, plantation enquiries and
+ * certification applications are all sent here.
  */
-export const OWNER_WHATSAPP = "94XXXXXXXXX";
+export const OWNER_WHATSAPP = "94768683639";
 
-/** True while the number above is still the placeholder (AC-12) */
+/** The same number written for people to read and dial */
+export const OWNER_WHATSAPP_DISPLAY = "+94 76 868 3639";
+
+/** True while the number above is still a placeholder (AC-12) */
 export function isPlaceholderNumber(number: string = OWNER_WHATSAPP): boolean {
   return !/^\d{8,15}$/.test(number);
 }

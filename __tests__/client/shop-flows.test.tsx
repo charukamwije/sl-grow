@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AccountView from "@/components/account/AccountView";
 import CartView from "@/components/cart/CartView";
+import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import PlannerWizard from "@/components/planner/PlannerWizard";
 import ShopView from "@/components/shop/ShopView";
@@ -239,6 +240,21 @@ describe("the Account page for guests", () => {
   });
 });
 
+describe("the footer", () => {
+  it("links to the shop's WhatsApp and shows the number to call", () => {
+    renderApp(<Footer />);
+
+    expect(screen.getByRole("link", { name: /chat on whatsapp/i })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^https:\/\/wa\.me\/94768683639\?text=/)
+    );
+    expect(screen.getByRole("link", { name: /\+94 76 868 3639/ })).toHaveAttribute(
+      "href",
+      "tel:+94768683639"
+    );
+  });
+});
+
 describe("the app bar menu on phones", () => {
   it("opens with every main tab and closes once one is chosen (NFR-02)", async () => {
     renderApp(<Header />);
@@ -312,7 +328,8 @@ describe("checkout", () => {
 
     expect(window.open).toHaveBeenCalledTimes(1);
     const url = decodeURIComponent(vi.mocked(window.open).mock.calls[0][0] as string);
-    expect(url).toMatch(/^https:\/\/wa\.me\/94XXXXXXXXX\?text=/);
+    // The shop's WhatsApp Business number
+    expect(url).toMatch(/^https:\/\/wa\.me\/94768683639\?text=/);
     expect(url).toContain("Name: Nimal");
     expect(url).toContain("[S-TOMATO]");
     expect(fetch).not.toHaveBeenCalled();
@@ -341,10 +358,10 @@ describe("checkout", () => {
     expect(JSON.stringify(orders[0])).not.toContain("0771234567");
   });
 
-  it("warns while the shop's number is still the placeholder (AC-12)", () => {
+  it("shows no number warning now the shop's number is set (AC-12)", () => {
     renderApp(<CartView />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/OWNER_WHATSAPP/);
+    expect(screen.queryByText(/OWNER_WHATSAPP/)).not.toBeInTheDocument();
   });
 
   it("shows the empty-cart message and no checkout form (FR-C-04)", () => {

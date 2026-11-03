@@ -32,7 +32,7 @@ Other scripts: `npm test`, `npm run test:watch`, `npm run test:coverage`, `npm r
 
 ## Before going live
 
-1. **Set the shop's WhatsApp number** in [lib/shop-config.ts](lib/shop-config.ts) (`OWNER_WHATSAPP`). Use international format without `+` or spaces, e.g. `94771234567`. While it is still the placeholder, the cart and plantation pages show a warning, and orders go nowhere.
+1. **The shop's WhatsApp number** is set to the WhatsApp Business number +94 76 868 3639 in [lib/shop-config.ts](lib/shop-config.ts) (`OWNER_WHATSAPP`, international format without `+` or spaces; `OWNER_WHATSAPP_DISPLAY` is how it is shown in the footer). Every order, plantation enquiry and certification application goes there. To change it, edit both values.
 2. **Check every price, yield and growing time** in `lib/data/` with local growers and suppliers (SRS OI-01).
 3. **Have the Sinhala and Tamil text reviewed** (OI-05) in `lib/i18n/strings.ts` and the data files.
 4. **Validate the plantation figures** in [lib/data/plantation.ts](lib/data/plantation.ts) (OI-19). They are placeholders.

@@ -5,7 +5,7 @@ import { useLanguage } from "@/contexts/language-context";
 import type { StringKey } from "@/lib/i18n/strings";
 import { LANGS, type Lang } from "@/lib/i18n/types";
 import { waLink } from "@/lib/order/whatsapp";
-import { isPlaceholderNumber } from "@/lib/shop-config";
+import { isPlaceholderNumber, OWNER_WHATSAPP, OWNER_WHATSAPP_DISPLAY } from "@/lib/shop-config";
 import AppLogo from "../icons/AppLogo";
 
 const LANG_NAMES: Record<Lang, string> = {
@@ -69,14 +69,24 @@ export default function Footer() {
           <div className="col-span-2 space-y-4 md:col-span-1">
             <h2 className="text-sm font-semibold text-white">{t("footer.contact")}</h2>
             {whatsappReady ? (
-              <a
-                href={waLink("Hello! I have a question about home gardening.")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1ebe5a]"
-              >
-                💬 {t("footer.whatsapp")}
-              </a>
+              <div className="space-y-2">
+                <a
+                  href={waLink("Hello! I have a question about home gardening.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1ebe5a]"
+                >
+                  💬 {t("footer.whatsapp")}
+                </a>
+                <p>
+                  <a
+                    href={`tel:+${OWNER_WHATSAPP}`}
+                    className="text-sm font-medium tracking-wide text-gray-300 transition hover:text-white"
+                  >
+                    📞 {OWNER_WHATSAPP_DISPLAY}
+                  </a>
+                </p>
+              </div>
             ) : (
               <p className="text-sm text-gray-500">{t("footer.whatsappSoon")}</p>
             )}

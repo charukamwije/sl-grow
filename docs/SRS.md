@@ -448,7 +448,7 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | ID | Issue | Owner | Priority |
 | --- | --- | --- | --- |
 | OI-01 | Confirm all prices, yields, cycles and growing times with local growers and suppliers | Shop owner | High |
-| OI-02 | Replace the placeholder WhatsApp number 94XXXXXXXXX | Shop owner | High |
+| OI-02 | ~~Replace the placeholder WhatsApp number~~ Done: set to the WhatsApp Business number +94 76 868 3639 | Shop owner | Closed |
 | OI-03 | Decide whether the cart is emptied after an order is sent | Shop owner | Medium |
 | OI-04 | Define delivery charges and whether they are shown to the customer | Shop owner | Medium |
 | OI-05 | Have Sinhala and Tamil text reviewed by professional translators and local growers | Shop owner | High |
