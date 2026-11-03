@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS): Aswedduma (අස්වැද්දුම)
 
-Version 3.4 · Nov 3, 2026 · Prepared by Charuka Wijethunga
+Version 3.5 · Nov 3, 2026 · Prepared by Charuka Wijethunga
 
 ## Revision history
 
@@ -13,6 +13,7 @@ Version 3.4 · Nov 3, 2026 · Prepared by Charuka Wijethunga
 | 3.2 | 2026-11-02 | Charuka Wijethunga | Named the product Aswedduma (අස්වැද්දුම), previously "Home Veggie Shop & Planner". |
 | 3.3 | 2026-11-02 | Charuka Wijethunga | Guests can use every function. Each order gets a short reference (FR-O-07). Guests' orders and plans are kept on their device (FR-A-07, 4.5). |
 | 3.4 | 2026-11-03 | Charuka Wijethunga | Added the Join page: Aswedduma Certified, with Learn, Apply and Get certified steps and digital badges for home growers, seeds and plantations (3.15). |
+| 3.5 | 2026-11-03 | Charuka Wijethunga | Each certification path is now a full free course: 3 modules of 3 lessons, each module ending in a quiz, in a course player (FR-J-02, FR-J-03, FR-J-07). |
 
 ## 1. Introduction
 
@@ -264,11 +265,12 @@ The Join page (`/join`) is a learning and certification programme with three pat
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-J-01 | The page shall offer the three paths, each with who it is for and its badge. Choosing a path shows its journey. | M |
-| FR-J-02 | Learn shall show the path's lessons, linking to the matching guide, planner or plantation page where one exists, then a knowledge check. | M |
-| FR-J-03 | The application shall stay locked until every knowledge-check question is answered correctly. A wrong attempt shows the score. A pass is remembered on the device. | M |
+| FR-J-02 | Learn shall be a free course for each path: 3 modules of 3 lessons, each lesson with a picture, three short points, a "Try it" task, a link to a matching guide or tool where one exists, and a Listen button. The Join page shows the course outline with Start, Continue (at the first unfinished module) or Review. | M |
+| FR-J-03 | Each module shall end in a quiz that must be answered fully correctly; a wrong attempt shows the score. Passing completes the module on the device. The application stays locked until every module is complete. | M |
 | FR-J-04 | Apply shall list the path's practical requirements and collect name, phone, district or town and optional notes. Sending opens WhatsApp with an application reference (e.g. APP-7K3P9Q), the path and the details. The reference is shown on screen with a Copy button and listed under Your applications. | M |
 | FR-J-05 | Get certified shall preview the path's digital badge with the applicant's name and a placeholder certificate ID. Badges and certificate IDs are issued by the Aswedduma team after review. | M |
 | FR-J-06 | The page shall state that Aswedduma Certified is Aswedduma's own programme, not a government certificate, and does not replace official seed certification by the Department of Agriculture. | M |
+| FR-J-07 | The course player (`/join/<path>/learn`) shall show the outline with completed modules ticked, overall progress, one lesson at a time with big Back and Next buttons, and a finish screen with the badge and a link to apply. It shall resume at a given module (`?module=n`). | M |
 
 ## 4. Data Requirements
 

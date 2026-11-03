@@ -97,8 +97,8 @@ export function useDeviceHistory<T>(store: Store<T>): T[] {
   return useSyncExternalStore(store.subscribe, store.get, () => EMPTY);
 }
 
-/** Join page: knowledge checks passed on this device (newest first) */
-export type DeviceLearning = { track: string; passedAt: string };
+/** Join page: course modules whose quiz was passed on this device (newest first) */
+export type DeviceLearning = { track: string; module: string; passedAt: string };
 
 /** Join page: certification applications sent from this device */
 export type DeviceApplication = { ref: string; track: string; createdAt: string };

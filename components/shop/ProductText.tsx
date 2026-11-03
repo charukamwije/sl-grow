@@ -24,6 +24,8 @@ export default function ProductText({ text }: { text: string }) {
 
         return (
           <Fragment key={i}>
+            {/* The product's picture helps readers who struggle with names */}
+            <span aria-hidden="true">{product.icon} </span>
             <strong className="font-semibold">{l(product.name)}</strong>{" "}
             <code className="rounded bg-emerald-50 px-1 text-xs text-emerald-700">
               {productCode(part)}

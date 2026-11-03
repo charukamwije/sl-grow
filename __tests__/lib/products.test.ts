@@ -109,22 +109,45 @@ describe("the catalogue (SRS 4.1 to 4.4)", () => {
     }
   });
 
-  it("has certification paths with valid knowledge checks", () => {
+  it("has a full course for every certification path", () => {
     for (const track of CERT_TRACKS) {
-      expect(track.lessons.length).toBeGreaterThan(0);
+      expect(track.modules.length).toBeGreaterThanOrEqual(3);
       expect(track.requirements.length).toBeGreaterThan(0);
-      for (const q of track.quiz) {
-        expect(q.answer).toBeGreaterThanOrEqual(0);
-        expect(q.answer).toBeLessThan(q.options.length);
+      expect(new Set(track.modules.map((m) => m.id)).size).toBe(track.modules.length);
+
+      for (const mod of track.modules) {
+        expect(mod.lessons.length).toBeGreaterThanOrEqual(3);
+        expect(mod.quiz.length).toBeGreaterThanOrEqual(2);
+        for (const lesson of mod.lessons) {
+          expect(lesson.icon).toBeTruthy();
+          expect(lesson.points.length).toBeGreaterThanOrEqual(2);
+        }
+        for (const q of mod.quiz) {
+          expect(q.answer).toBeGreaterThanOrEqual(0);
+          expect(q.answer).toBeLessThan(q.options.length);
+        }
       }
+
       for (const text of [
         track.name,
         track.forWho,
-        ...track.lessons.flatMap((lesson) => [lesson.title, lesson.text]),
         ...track.requirements,
-        ...track.quiz.flatMap((q) => [q.question, ...q.options]),
+        ...track.modules.flatMap((m) => [
+          m.title,
+          ...m.lessons.flatMap((lesson) => [lesson.title, ...lesson.points, lesson.task]),
+          ...m.quiz.flatMap((q) => [q.question, ...q.options]),
+        ]),
       ]) {
         expect(text.en && text.si && text.ta).toBeTruthy();
+      }
+    }
+  });
+
+  it("links course lessons only to pages that exist", () => {
+    const pages = new Set(["/planner", "/plantation", "/guides", ...GUIDES.map((g) => `/guides/${g.id}`)]);
+    for (const track of CERT_TRACKS) {
+      for (const lesson of track.modules.flatMap((m) => m.lessons)) {
+        if (lesson.href) expect(pages.has(lesson.href), lesson.href).toBe(true);
       }
     }
   });

@@ -47,11 +47,19 @@ function renderJoin(ui: ReactNode = <JoinPage />) {
 
 const home = CERT_TRACKS[0];
 
-async function answer(indexes: number[]) {
-  for (const [qi, oi] of indexes.entries()) {
-    await userEvent.click(screen.getByRole("radio", { name: home.quiz[qi].options[oi].en }));
-  }
-  await userEvent.click(screen.getByRole("button", { name: "Check my answers" }));
+// Mark course modules as passed on this device (all of them by default)
+function completeModules(trackId = "home-grower", count?: number) {
+  const track = CERT_TRACKS.find((t) => t.id === trackId)!;
+  localStorage.setItem(
+    DEVICE_LEARNING_KEY,
+    JSON.stringify(
+      track.modules.slice(0, count).map((mod) => ({
+        track: track.id,
+        module: mod.id,
+        passedAt: "2026-11-03T08:00:00.000Z",
+      }))
+    )
+  );
 }
 
 beforeEach(() => {
@@ -70,44 +78,51 @@ describe("the Join page", () => {
     expect(screen.getByRole("heading", { name: "Learn. Apply. Get certified." })).toBeInTheDocument();
   });
 
-  it("keeps the application locked until the knowledge check is passed", async () => {
+  it("shows the course with its modules and a start button", () => {
     renderJoin();
 
-    expect(screen.getByText("Pass the knowledge check to unlock your application.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send application/i })).not.toBeInTheDocument();
-
-    // One wrong answer: told the score, still locked
-    const wrong = home.quiz.map((q, i) => (i === 0 ? (q.answer + 1) % 3 : q.answer));
-    await answer(wrong);
-    expect(screen.getByRole("alert")).toHaveTextContent("2 of 3 correct");
-    expect(screen.queryByRole("button", { name: /send application/i })).not.toBeInTheDocument();
-
-    // All right: passed, unlocked, and remembered on the device
-    await userEvent.click(screen.getByRole("radio", { name: home.quiz[0].options[home.quiz[0].answer].en }));
-    await userEvent.click(screen.getByRole("button", { name: "Check my answers" }));
-
-    expect(screen.getByText("Well done! You passed the knowledge check.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /send application/i })).toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem(DEVICE_LEARNING_KEY)!)[0]).toMatchObject({
-      track: "home-grower",
-    });
+    expect(screen.getByText("3 modules · 9 lessons · free")).toBeInTheDocument();
+    for (const mod of home.modules) {
+      expect(screen.getByText(mod.title.en)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("link", { name: /start the course/i })).toHaveAttribute(
+      "href",
+      "/join/home-grower/learn"
+    );
   });
 
-  it("remembers a passed check on the next visit", () => {
-    localStorage.setItem(
-      DEVICE_LEARNING_KEY,
-      JSON.stringify([{ track: "home-grower", passedAt: "2026-11-03T08:00:00.000Z" }])
-    );
+  it("keeps the application locked until every module is done", () => {
+    completeModules("home-grower", 2);
     renderJoin();
 
+    expect(screen.getByText("Finish the course to unlock your application.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send application/i })).not.toBeInTheDocument();
+    // Picks up where the learner stopped
+    expect(screen.getByRole("link", { name: /continue the course/i })).toHaveAttribute(
+      "href",
+      "/join/home-grower/learn?module=3"
+    );
+  });
+
+  it("unlocks the application once the course is complete", () => {
+    completeModules();
+    renderJoin();
+
+    expect(screen.getByText("Course completed. Your application is unlocked.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /send application/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /review the course/i })).toBeInTheDocument();
+  });
+
+  it("opens the path given in the link", () => {
+    renderJoin(<JoinPage initialPath="plantation" />);
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Aswedduma Certified Plantation" })
+    ).toBeInTheDocument();
   });
 
   it("sends the application on WhatsApp with an APP- reference", async () => {
-    localStorage.setItem(
-      DEVICE_LEARNING_KEY,
-      JSON.stringify([{ track: "home-grower", passedAt: "2026-11-03T08:00:00.000Z" }])
-    );
+    completeModules();
     renderJoin();
 
     // Details are required
@@ -126,6 +141,7 @@ describe("the Join page", () => {
     expect(url).toContain("Certification application - Aswedduma");
     expect(url).toContain(`Path: ${home.name.en}`);
     expect(url).toContain("District or town: Kandy");
+    expect(url).toContain("Knowledge check: passed (3/3 modules)");
     const ref = url.match(/Reference: (APP-[A-Z0-9]{6})/)![1];
 
     // On screen in the confirmation, and again in the list of applications
@@ -140,7 +156,7 @@ describe("the Join page", () => {
     expect(screen.getByRole("heading", { name: "Your applications" })).toBeInTheDocument();
   });
 
-  it("switches to another path with its own lessons and check", async () => {
+  it("switches to another path with its own course", async () => {
     renderJoin();
 
     await userEvent.click(screen.getAllByRole("button", { name: "Start this path" })[0]);
@@ -148,8 +164,12 @@ describe("the Join page", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Aswedduma Certified Seeds" })
     ).toBeInTheDocument();
-    expect(screen.getByText("1. Choose the right parent plants")).toBeInTheDocument();
-    expect(screen.getByText(/Where should seeds be stored/)).toBeInTheDocument();
+    expect(screen.getByText("Choose good parent plants")).toBeInTheDocument();
+    expect(screen.getByText("Clean, dry and store")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /start the course/i })).toHaveAttribute(
+      "href",
+      "/join/seeds/learn"
+    );
   });
 
   it("says plainly that this is not a government certificate", () => {

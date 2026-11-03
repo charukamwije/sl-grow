@@ -2,11 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { CheckCircleIcon, LockClosedIcon, XCircleIcon } from "@heroicons/react/20/solid";
-import { ArrowTopRightOnSquareIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, LockClosedIcon } from "@heroicons/react/20/solid";
+import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
-import { CERT_TRACKS, getTrack, type CertTrack } from "@/lib/data/certifications";
+import { CERT_TRACKS, getTrack, lessonCount, type CertTrack } from "@/lib/data/certifications";
+import { completedModules, firstOpenModule, isCourseComplete } from "@/lib/course-progress";
 import {
   deviceApplications,
   deviceLearning,
@@ -43,122 +44,58 @@ function StepNumber({ n, done }: { n: number; done?: boolean }) {
   );
 }
 
-/** Learn: the lessons, then a knowledge check that unlocks Apply */
-function Learn({ track, passed }: { track: CertTrack; passed: boolean }) {
+/** Learn: the course's modules, with where the learner is up to */
+function CourseOverview({ track }: { track: CertTrack }) {
   const { t, l } = useLanguage();
-  const { addErrorNotification } = useNotification();
-  const [answers, setAnswers] = useState<(number | null)[]>(() => track.quiz.map(() => null));
-  const [checked, setChecked] = useState(false);
-
-  const score = track.quiz.filter((q, i) => answers[i] === q.answer).length;
-
-  const check = () => {
-    if (answers.some((answer) => answer === null)) {
-      addErrorNotification(t("join.quizIncomplete"));
-      return;
-    }
-    setChecked(true);
-    if (score === track.quiz.length && !passed) {
-      deviceLearning.add({ track: track.id, passedAt: new Date().toISOString() });
-    }
-  };
+  const learning = useDeviceHistory(deviceLearning);
+  const done = completedModules(learning, track);
+  const complete = isCourseComplete(learning, track);
+  const started = done.size > 0;
+  const resume = firstOpenModule(learning, track) + 1;
 
   return (
-    <div className="space-y-5">
-      <ol className="space-y-3">
-        {track.lessons.map((lesson, i) => (
-          <li key={i} className="rounded-2xl bg-gray-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {i + 1}. {l(lesson.title)}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-gray-600">{l(lesson.text)}</p>
-              </div>
-              {lesson.href && (
-                <Link
-                  href={lesson.href}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50"
-                >
-                  {t("join.openGuide")}
-                  <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                </Link>
-              )}
+    <div className="space-y-4">
+      <p className="text-base text-gray-700">{t("course.intro")}</p>
+      <p className="text-xs font-medium text-gray-500">
+        {t("course.summary", { modules: track.modules.length, lessons: lessonCount(track) })}
+      </p>
+
+      <ol className="space-y-2">
+        {track.modules.map((module, i) => (
+          <li
+            key={module.id}
+            className={`flex items-center gap-4 rounded-2xl p-4 ${done.has(module.id) ? "bg-emerald-50" : "bg-gray-50"}`}
+          >
+            <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+              {module.icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                {t("course.module", { n: i + 1 })}
+              </p>
+              <p className="font-semibold text-gray-900">{l(module.title)}</p>
+              <p className="text-xs text-gray-500">{t("course.lessonsCount", { n: module.lessons.length })}</p>
             </div>
+            {done.has(module.id) && (
+              <CheckCircleIcon className="h-6 w-6 shrink-0 text-emerald-600" aria-label="✓" />
+            )}
           </li>
         ))}
       </ol>
 
-      <div className="rounded-2xl border border-black/5 p-4 sm:p-5">
-        <h4 className="font-semibold text-gray-900">🧠 {t("join.quizTitle")}</h4>
-        {passed ? (
-          <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
-            <CheckCircleIcon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-            {t("join.quizPassed")}
-          </p>
-        ) : (
-          <>
-            <p className="mt-1 text-sm text-gray-600">{t("join.quizIntro")}</p>
-            <div className="mt-4 space-y-5">
-              {track.quiz.map((q, qi) => (
-                <fieldset key={qi}>
-                  <legend className="mb-2 text-sm font-medium text-gray-900">
-                    {qi + 1}. {l(q.question)}
-                  </legend>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {q.options.map((option, oi) => {
-                      const chosen = answers[qi] === oi;
-                      const wrong = checked && chosen && oi !== q.answer;
-                      return (
-                        <label
-                          key={oi}
-                          className={`flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-500 ${
-                            wrong
-                              ? "bg-red-50 text-red-900 ring-1 ring-red-200"
-                              : chosen
-                                ? "bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500"
-                                : "bg-gray-50 text-gray-700 ring-1 ring-transparent hover:ring-gray-200"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`${track.id}-q${qi}`}
-                            checked={chosen}
-                            onChange={() => {
-                              setChecked(false);
-                              setAnswers((prev) => prev.map((a, i) => (i === qi ? oi : a)));
-                            }}
-                            className="sr-only"
-                          />
-                          {wrong ? (
-                            <XCircleIcon className="h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />
-                          ) : (
-                            <span
-                              aria-hidden="true"
-                              className={`h-4 w-4 shrink-0 rounded-full border-2 ${
-                                chosen ? "border-emerald-600 bg-emerald-600" : "border-gray-300"
-                              }`}
-                            />
-                          )}
-                          {l(option)}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              ))}
-            </div>
-            {checked && score < track.quiz.length && (
-              <p role="alert" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                {t("join.quizRetry", { n: score, total: track.quiz.length })}
-              </p>
-            )}
-            <button type="button" onClick={check} className={`${btnPrimary} mt-4`}>
-              {t("join.check")}
-            </button>
-          </>
-        )}
-      </div>
+      {complete && (
+        <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm font-medium text-emerald-900">
+          <CheckCircleIcon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+          {t("course.completed")}
+        </p>
+      )}
+
+      <Link
+        href={`/join/${track.id}/learn${started && !complete ? `?module=${resume}` : ""}`}
+        className={`${btnPrimary} w-full !py-4 text-base sm:w-auto`}
+      >
+        📚 {complete ? t("course.review") : started ? t("course.continue") : t("course.start")}
+      </Link>
     </div>
   );
 }
@@ -191,7 +128,7 @@ function Apply({
     }
 
     const ref = generateApplicationRef();
-    const score = `${track.quiz.length}/${track.quiz.length}`;
+    const score = `${track.modules.length}/${track.modules.length} modules`;
     // Opened inside the click so mobile popup blockers allow it
     window.open(waLink(buildApplicationMessage(track.name.en, details, ref, score)), "_blank", "noopener");
     deviceApplications.add({ ref, track: track.id, createdAt: new Date().toISOString() });
@@ -273,7 +210,7 @@ function Apply({
 function Journey({ track }: { track: CertTrack }) {
   const { t, l } = useLanguage();
   const learning = useDeviceHistory(deviceLearning);
-  const passed = learning.some((entry) => entry.track === track.id);
+  const passed = isCourseComplete(learning, track);
   const [details, setDetails] = useState<ApplicationDetails>({
     name: "",
     phone: "",
@@ -289,7 +226,7 @@ function Journey({ track }: { track: CertTrack }) {
             <StepNumber n={1} done={passed} />
             <h3 className={`${subheading} !mb-0`}>{t("join.learnTitle")}</h3>
           </div>
-          <Learn track={track} passed={passed} />
+          <CourseOverview track={track} />
         </div>
 
         <div className="space-y-4 border-t border-black/5 pt-8">
@@ -321,9 +258,9 @@ function Journey({ track }: { track: CertTrack }) {
   );
 }
 
-export default function JoinPage() {
+export default function JoinPage({ initialPath }: { initialPath?: CertTrack["id"] }) {
   const { t, l } = useLanguage();
-  const [selected, setSelected] = useState<CertTrack["id"]>("home-grower");
+  const [selected, setSelected] = useState<CertTrack["id"]>(initialPath ?? "home-grower");
   const applications = useDeviceHistory(deviceApplications);
   const track = getTrack(selected)!;
 

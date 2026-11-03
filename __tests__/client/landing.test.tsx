@@ -114,6 +114,19 @@ describe("the landing page", () => {
     }
   });
 
+  it("shows the headline numbers with their units", () => {
+    render(<LandingPage />);
+
+    expect(
+      screen.getByRole("heading", { name: "Home growing, by the numbers" })
+    ).toBeInTheDocument();
+    for (const unit of ["vegetables", "days", "kg / year", "g / day"]) {
+      expect(screen.getByText(unit)).toBeInTheDocument();
+    }
+    expect(screen.getByText("400")).toBeInTheDocument();
+    expect(screen.getByText(/about five 80 g handfuls/)).toBeInTheDocument();
+  });
+
   it("tells the grow-your-own story with the planner's own savings figure", () => {
     render(<LandingPage />);
 

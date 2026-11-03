@@ -7,7 +7,7 @@ import { CERT_TRACKS } from "@/lib/data/certifications";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import type { StringKey } from "@/lib/i18n/strings";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
-import { formatLKR, formatNumber, seedlingFor } from "@/lib/products";
+import { formatLKR, seedlingFor } from "@/lib/products";
 import { btnPrimary, btnSecondary, card } from "../ui/styles";
 import DigitalBadge from "../join/DigitalBadge";
 import BarChart from "./BarChart";
@@ -15,9 +15,7 @@ import CountUp from "./CountUp";
 import HeroStory from "./HeroStory";
 import ProvinceMap from "./ProvinceMap";
 import Reveal from "./Reveal";
-
-// The WHO's recommended minimum intake of fruit and vegetables
-const WHO_GRAMS_PER_DAY = 400;
+import StatsBand from "./StatsBand";
 
 const ADVANTAGES:{ title: StringKey; text: StringKey; icon: string }[] = [
   { title: "home.advSun", text: "home.advSunText", icon: "☀️" },
@@ -52,16 +50,9 @@ const icon = (vegId: string) => seedlingFor(vegId)?.icon ?? "🌱";
 // page and the planner can never disagree
 const yieldPerYear = (veg: (typeof VEGETABLES)[number]) =>
   veg.yieldPerCycle * veg.cyclesPerYear;
-const fastest = [...VEGETABLES].sort((a, b) => a.daysToHarvest - b.daysToHarvest)[0];
-const biggest = [...VEGETABLES].sort((a, b) => yieldPerYear(b) - yieldPerYear(a))[0];
 // The planner's default household: the savings quoted on this page
 const DEFAULTS = defaultInputs();
 const DEFAULT_PLAN = computePlan(DEFAULTS);
-
-// Stable formatters for the count-up numbers (a new function each render
-// would restart the count)
-const formatWhole = (value: number) => String(Math.round(value));
-const formatDecimal = (value: number) => formatNumber(value);
 
 const sectionTitle = "text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl";
 
@@ -113,21 +104,6 @@ export default function LandingPage() {
       display: formatLKR(value),
     };
   }).sort((a, b) => b.value - a.value);
-
-  const stats = [
-    { value: VEGETABLES.length, format: formatWhole, text: t("home.statVeg") },
-    {
-      value: fastest.daysToHarvest,
-      format: formatWhole,
-      text: t("home.statFastest", { name: l(fastest.name) }),
-    },
-    {
-      value: yieldPerYear(biggest),
-      format: formatDecimal,
-      text: t("home.statYield", { name: l(biggest.name) }),
-    },
-    { value: WHO_GRAMS_PER_DAY, format: formatWhole, text: t("home.statWho") },
-  ];
 
   return (
     <div className="space-y-20 sm:space-y-28">
@@ -257,19 +233,7 @@ export default function LandingPage() {
       </Reveal>
 
       {/* Headline numbers */}
-      <section>
-        <Reveal as="dl" stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((stat) => (
-            // The number reads first visually; the term stays first in the markup
-            <div key={stat.text} className={`${card} lift flex flex-col-reverse justify-end gap-1`}>
-              <dt className="text-sm leading-snug text-gray-600">{stat.text}</dt>
-              <dd className="text-3xl font-bold tracking-tight text-emerald-700 sm:text-4xl">
-                <CountUp value={stat.value} format={stat.format} />
-              </dd>
-            </div>
-          ))}
-        </Reveal>
-      </section>
+      <StatsBand />
 
       {/* Seasons */}
       <section className="space-y-5">
