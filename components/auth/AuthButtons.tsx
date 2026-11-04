@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
-import type { ServerUser } from "@/lib/firebase/auth-server";
+import type { ServerUser } from "@/lib/supabase/auth-server";
 import Loading from "../icons/Loading";
 import AuthModal from "../modals/AuthModal";
 import { ArrowRightEndOnRectangleIcon } from "@heroicons/react/24/outline";

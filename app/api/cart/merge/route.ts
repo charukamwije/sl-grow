@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase/admin";
-import { resolveUid } from "@/lib/firebase/route-auth";
-import { userCart } from "@/lib/firebase/store";
-import { mergeCarts, sanitizeCart } from "@/lib/products";
+import { resolveUid } from "@/lib/supabase/route-auth";
+import { mergeCart } from "@/lib/supabase/store";
+import { getCatalog } from "@/lib/catalog-server";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
 
 /**
@@ -23,23 +21,14 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const deviceCart = sanitizeCart((body as { cart?: unknown } | null)?.cart);
 
   try {
-    // In a transaction so two devices merging at once cannot drop each
-    // other's items
-    const merged = await adminDb.runTransaction(async (transaction) => {
-      const ref = userCart(uid);
-      const snapshot = await transaction.get(ref);
-      const result = mergeCarts(sanitizeCart(snapshot.get("items")), deviceCart);
+    const { sanitizeCart } = await getCatalog();
+    const deviceCart = sanitizeCart((body as { cart?: unknown } | null)?.cart);
 
-      transaction.set(ref, {
-        items: result,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-
-      return result;
-    });
+    // In one database statement so two devices merging at once cannot drop
+    // each other's items
+    const merged = sanitizeCart(await mergeCart(uid, deviceCart));
 
     return NextResponse.json({ success: true, cart: merged });
   } catch (error) {

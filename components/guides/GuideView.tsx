@@ -7,24 +7,15 @@ import {
   SpeakerWaveIcon,
   StopIcon,
 } from "@heroicons/react/24/solid";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
-import {
-  getGuide,
-  SOIL_MIX_PER_BAG,
-  type Guide,
-  type GuideStep,
-} from "@/lib/data/guides";
+import { SOIL_MIX_PER_BAG, type Guide, type GuideStep } from "@/lib/data/guides";
+import type { GuideSummary } from "@/lib/guides";
 import { SHARED_SUPPLIES } from "@/lib/data/products";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import { containerFor } from "@/lib/planner/calc";
-import {
-  formatLKR,
-  formatNumber,
-  getProduct,
-  lineTotal,
-  seedlingFor,
-} from "@/lib/products";
+import { formatLKR, formatNumber, type Catalog } from "@/lib/products";
 import { useSpeech } from "@/lib/use-speech";
 import ProductTable from "../shop/ProductTable";
 import ProductText from "../shop/ProductText";
@@ -34,24 +25,29 @@ import GuideList from "./GuideList";
 
 type Fact = { icon: string; label: string; value: string };
 
-function sumLines(lines: { productId: string; qty: number }[]): number {
+function sumLines(
+  { lineTotal }: Catalog,
+  lines: { productId: string; qty: number }[]
+): number {
   return lines.reduce((sum, line) => sum + lineTotal(line.productId, line.qty), 0);
 }
 
 /** FR-G-03, FR-G-04: the key figures, each with a picture */
 function useGuideFacts(guide: Guide): Fact[] {
   const { t, l } = useLanguage();
+  const catalog = useCatalog();
+  const { getProduct, seedlingFor } = catalog;
 
   if (guide.kind === "package") {
     return [
-      { icon: "💰", label: t("stat.setupCost"), value: formatLKR(sumLines(SHARED_SUPPLIES)) },
+      { icon: "💰", label: t("stat.setupCost"), value: formatLKR(sumLines(catalog, SHARED_SUPPLIES)) },
       { icon: "⏱️", label: t("stat.readiness"), value: guide.time ? l(guide.time) : "" },
     ];
   }
 
   if (guide.kind === "soil") {
     return [
-      { icon: "💰", label: t("stat.mixCost"), value: formatLKR(sumLines(SOIL_MIX_PER_BAG)) },
+      { icon: "💰", label: t("stat.mixCost"), value: formatLKR(sumLines(catalog, SOIL_MIX_PER_BAG)) },
       { icon: "⏱️", label: t("stat.readiness"), value: guide.time ? l(guide.time) : "" },
     ];
   }
@@ -121,9 +117,15 @@ function StepCard({ step, n }: { step: GuideStep; n: number }) {
   );
 }
 
-export default function GuideView({ id }: { id: string }) {
-  const guide = getGuide(id)!;
+type GuideViewProps = {
+  guide: Guide;
+  /** For the strip of other guides at the top; none in the editor's preview */
+  guides: GuideSummary[];
+};
+
+export default function GuideView({ guide, guides }: GuideViewProps) {
   const { lang, t, l } = useLanguage();
+  const { getProduct } = useCatalog();
   const { addInfoNotification } = useNotification();
   const facts = useGuideFacts(guide);
   const speech = useSpeech(lang);
@@ -170,7 +172,7 @@ export default function GuideView({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
-      <GuideList currentId={guide.id} compact />
+      {guides.length > 0 && <GuideList guides={guides} currentId={guide.id} compact />}
 
       {/* Title and the key facts as picture tiles */}
       <header className="flex items-center gap-4">

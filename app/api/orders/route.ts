@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { resolveUid } from "@/lib/firebase/route-auth";
-import { userOrders } from "@/lib/firebase/store";
-import { generateOrderRef, isOrderRef } from "@/lib/order/reference";
+import { resolveUid } from "@/lib/supabase/route-auth";
+import { insertOrder } from "@/lib/supabase/store";
 import {
+  isPaymentMethod,
   validateCheckout,
   type CheckoutDetails,
-} from "@/lib/order/whatsapp";
-import {
-  cartTotal,
-  getProduct,
-  lineTotal,
-  productCode,
-  sanitizeCart,
-} from "@/lib/products";
+} from "@/lib/order/checkout";
+import { getCatalog } from "@/lib/catalog-server";
+import { productCode } from "@/lib/products";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
 
 const MAX_FIELD = 200;
@@ -32,24 +26,35 @@ function readDetails(value: unknown): CheckoutDetails | null {
   const address = text(raw.address ?? "", MAX_LONG_FIELD);
   const notes = text(raw.notes ?? "", MAX_LONG_FIELD);
   const method = raw.method;
+  const payment = raw.payment;
 
   if (
     name === null ||
     phone === null ||
     address === null ||
     notes === null ||
-    (method !== "pickup" && method !== "delivery")
+    (method !== "pickup" && method !== "delivery") ||
+    !isPaymentMethod(payment)
   ) {
     return null;
   }
 
-  return { name, phone, method, address: method === "delivery" ? address : "", notes };
+  return {
+    name,
+    phone,
+    method,
+    payment,
+    address: method === "delivery" ? address : "",
+    notes,
+  };
 }
 
 /**
- * Save a signed-in customer's order (FR-A-05, BR-21). Create only: there is
- * no route to edit or delete an order (FR-A-12). Names, codes and prices come
- * from the catalogue on the server, never from the request.
+ * Places a signed-in customer's order (FR-O-01, FR-A-05, BR-21). Guests are
+ * asked to sign in first. Names, codes and prices come from the catalogue on
+ * the server, never from the request, and so does the order reference. The
+ * customer cannot edit or delete an order afterwards (FR-A-12); admins move
+ * it through its status.
  */
 export async function POST(request: NextRequest) {
   const rejected = rejectCrossSiteRequest(request, true);
@@ -65,13 +70,22 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as {
     details?: unknown;
     cart?: unknown;
-    ref?: unknown;
   } | null;
+  let catalog: Awaited<ReturnType<typeof getCatalog>>;
+  try {
+    catalog = await getCatalog();
+  } catch (error) {
+    console.error("Order catalogue error:", error);
+
+    return NextResponse.json(
+      { success: false, error: "Failed to save the order." },
+      { status: 500 }
+    );
+  }
+
+  const { getProduct, lineTotal, cartTotal } = catalog;
   const details = readDetails(body?.details);
-  const cart = sanitizeCart(body?.cart);
-  // The reference the customer already has in WhatsApp; a malformed one is
-  // replaced rather than stored
-  const ref = isOrderRef(body?.ref) ? body.ref : generateOrderRef();
+  const cart = catalog.sanitizeCart(body?.cart);
 
   if (!details || validateCheckout(details, cart) !== null) {
     return NextResponse.json(
@@ -89,15 +103,15 @@ export async function POST(request: NextRequest) {
   }));
 
   try {
-    const doc = await userOrders(uid).add({
-      ref,
-      ...details,
+    const { payment, ...rest } = details;
+    const { id, ref } = await insertOrder(uid, {
+      ...rest,
+      payment_method: payment,
       items,
       total: cartTotal(cart),
-      createdAt: FieldValue.serverTimestamp(),
     });
 
-    return NextResponse.json({ success: true, id: doc.id, ref });
+    return NextResponse.json({ success: true, id, ref });
   } catch (error) {
     console.error("Order save error:", error);
 

@@ -1,14 +1,13 @@
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME } from "@/lib/firebase/session";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cookieJar } from "../helpers/cookie-jar";
+import { stubSupabaseEnv, supabaseDouble } from "../helpers/supabase-double";
 
-const adminAuth = vi.hoisted(() => ({
-  verifySessionCookie: vi.fn(),
-  revokeRefreshTokens: vi.fn(),
-}));
-
-vi.mock("@/lib/firebase/admin", () => ({ adminAuth }));
+vi.mock("@/lib/supabase/server", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { createClient: async () => supabaseDouble.client };
+});
 vi.mock("next/headers", async () => {
   const { cookieJar } = await import("../helpers/cookie-jar");
   return { cookies: async () => cookieJar.store };
@@ -16,139 +15,80 @@ vi.mock("next/headers", async () => {
 
 const { POST } = await import("@/app/api/auth/signout/route");
 
-const NOW = new Date("2026-01-01T00:00:00Z");
-const nowSeconds = NOW.getTime() / 1000;
-
-const REVOCATION_FAILED =
-  "Signed out on this device, but the server session could not be revoked.";
-
-function signoutRequest(headers: Record<string, string> = {}) {
+function signoutRequest(origin = "https://example.com") {
   return new NextRequest("https://example.com/api/auth/signout", {
     method: "POST",
-    headers: { host: "example.com", origin: "https://example.com", ...headers },
+    headers: { host: "example.com", origin },
   });
 }
 
-function givenSession(authTime = nowSeconds - 60) {
-  cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "session-cookie" });
-  adminAuth.verifySessionCookie.mockResolvedValue({
-    uid: "user-1",
-    auth_time: authTime,
-  });
+function givenSessionCookies() {
+  cookieJar.store.set({ name: "sb-project-auth-token.0", value: "chunk-0" });
+  cookieJar.store.set({ name: "sb-project-auth-token.1", value: "chunk-1" });
+  cookieJar.store.set({ name: "language", value: "si" });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   cookieJar.reset();
-  vi.useFakeTimers();
-  vi.setSystemTime(NOW);
+  supabaseDouble.reset();
+  stubSupabaseEnv();
   vi.spyOn(console, "error").mockImplementation(() => {});
-  adminAuth.revokeRefreshTokens.mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe("POST /api/auth/signout", () => {
-  it("rejects a cross-site request and keeps the session", async () => {
-    givenSession();
+  it("revokes every session of the user and clears only the Supabase cookies", async () => {
+    givenSessionCookies();
 
-    const response = await POST(signoutRequest({ origin: "https://attacker.example" }));
+    const response = await POST(signoutRequest());
+
+    expect(response.status).toBe(200);
+    expect(supabaseDouble.auth.signOut).toHaveBeenCalledWith({ scope: "global" });
+    expect([...cookieJar.records.keys()]).toEqual(["language"]);
+  });
+
+  it("counts a session Supabase already rejects as signed out", async () => {
+    givenSessionCookies();
+    supabaseDouble.auth.signOut.mockResolvedValue({
+      error: new AuthApiError("Session not found", 403, "session_not_found"),
+    });
+
+    const response = await POST(signoutRequest());
+
+    expect(response.status).toBe(200);
+    expect(cookieJar.records.has("sb-project-auth-token.0")).toBe(false);
+  });
+
+  it("reports an outage, though this browser is signed out either way", async () => {
+    givenSessionCookies();
+    supabaseDouble.auth.signOut.mockResolvedValue({
+      error: new AuthRetryableFetchError("fetch failed", 0),
+    });
+
+    const response = await POST(signoutRequest());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ success: false });
+    expect(cookieJar.records.has("sb-project-auth-token.0")).toBe(false);
+  });
+
+  it("rejects a cross-site request", async () => {
+    givenSessionCookies();
+
+    const response = await POST(signoutRequest("https://attacker.example"));
 
     expect(response.status).toBe(403);
-    expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(true);
-    expect(adminAuth.revokeRefreshTokens).not.toHaveBeenCalled();
+    expect(supabaseDouble.auth.signOut).not.toHaveBeenCalled();
+    expect(cookieJar.records.has("sb-project-auth-token.0")).toBe(true);
   });
 
-  it("succeeds when there is no session to end", async () => {
-    const response = await POST(signoutRequest());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ success: true });
-    expect(adminAuth.verifySessionCookie).not.toHaveBeenCalled();
-    expect(adminAuth.revokeRefreshTokens).not.toHaveBeenCalled();
-  });
-
-  it("revokes every session of the user and clears the cookie", async () => {
-    givenSession();
+  it("has nothing to do in guest mode", async () => {
+    vi.unstubAllEnvs();
 
     const response = await POST(signoutRequest());
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ success: true });
-    expect(adminAuth.revokeRefreshTokens).toHaveBeenCalledWith("user-1");
-    expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
-  });
-
-  it("treats a cookie Firebase rejects as already signed out", async () => {
-    cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "expired" });
-    adminAuth.verifySessionCookie.mockRejectedValue({
-      code: "auth/session-cookie-expired",
-    });
-
-    const response = await POST(signoutRequest());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ success: true });
-    expect(adminAuth.revokeRefreshTokens).not.toHaveBeenCalled();
-    expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
-  });
-
-  it("reports a backend failure instead of claiming a completed sign-out", async () => {
-    cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "session-cookie" });
-    adminAuth.verifySessionCookie.mockRejectedValue({
-      code: "auth/internal-error",
-    });
-
-    const response = await POST(signoutRequest());
-
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: REVOCATION_FAILED,
-    });
-    // The cookie is gone from this browser either way.
-    expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
-  });
-
-  it("reports a failure when revocation itself fails", async () => {
-    givenSession();
-    adminAuth.revokeRefreshTokens.mockRejectedValue(new Error("network down"));
-
-    const response = await POST(signoutRequest());
-
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: REVOCATION_FAILED,
-    });
-  });
-
-  it("waits out the same-second race before revoking", async () => {
-    // Revocation only rejects tokens whose auth_time is strictly before the
-    // second it happened, so signing out in the same second as signing in
-    // would otherwise leave the cookie working.
-    givenSession(nowSeconds);
-
-    const pending = POST(signoutRequest());
-
-    await vi.advanceTimersByTimeAsync(500);
-    expect(adminAuth.revokeRefreshTokens).not.toHaveBeenCalled();
-
-    await vi.advanceTimersByTimeAsync(500);
-    const response = await pending;
-
-    expect(adminAuth.revokeRefreshTokens).toHaveBeenCalledWith("user-1");
-    expect(response.status).toBe(200);
-  });
-
-  it("does not wait when the sign-in is already revokable", async () => {
-    givenSession(nowSeconds - 60);
-
-    const response = await POST(signoutRequest());
-
-    expect(response.status).toBe(200);
-    expect(adminAuth.revokeRefreshTokens).toHaveBeenCalledWith("user-1");
+    expect(supabaseDouble.auth.signOut).not.toHaveBeenCalled();
   });
 });

@@ -1,13 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/20/solid";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
 import { CERT_TRACKS } from "@/lib/data/certifications";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import type { StringKey } from "@/lib/i18n/strings";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
-import { formatLKR, seedlingFor } from "@/lib/products";
+import { formatLKR } from "@/lib/products";
 import { btnPrimary, btnSecondary, card } from "../ui/styles";
 import DigitalBadge from "../join/DigitalBadge";
 import BarChart from "./BarChart";
@@ -44,7 +46,6 @@ const HOW: { title: StringKey; text: StringKey; icon: string }[] = [
   { title: "home.how3", text: "home.how3Text", icon: "💬" },
 ];
 
-const icon = (vegId: string) => seedlingFor(vegId)?.icon ?? "🌱";
 
 // Everything below is derived from the planner's own data, so the landing
 // page and the planner can never disagree
@@ -52,7 +53,6 @@ const yieldPerYear = (veg: (typeof VEGETABLES)[number]) =>
   veg.yieldPerCycle * veg.cyclesPerYear;
 // The planner's default household: the savings quoted on this page
 const DEFAULTS = defaultInputs();
-const DEFAULT_PLAN = computePlan(DEFAULTS);
 
 const sectionTitle = "text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl";
 
@@ -82,6 +82,9 @@ function Ctas({ center, dark }: { center?: boolean; dark?: boolean }) {
 
 export default function LandingPage() {
   const { t, l } = useLanguage();
+  const catalog = useCatalog();
+  const icon = (vegId: string) => catalog.seedlingFor(vegId)?.icon ?? "🌱";
+  const DEFAULT_PLAN = useMemo(() => computePlan(DEFAULTS, catalog), [catalog]);
 
   const daysRows = [...VEGETABLES]
     .sort((a, b) => a.daysToHarvest - b.daysToHarvest)

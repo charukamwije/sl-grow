@@ -7,30 +7,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import "./setup";
 
-const firebaseAuth = vi.hoisted(() => ({
-  signInWithPopup: vi.fn(),
-  signOut: vi.fn(),
-  reauthenticateWithPopup: vi.fn(),
+const authService = vi.hoisted(() => ({
+  startSignIn: vi.fn(),
+  deleteSession: vi.fn(),
+  deleteUserAccount: vi.fn(),
 }));
 
-vi.mock("firebase/auth", () => firebaseAuth);
-vi.mock("@/lib/firebase/client", () => ({
-  auth: { currentUser: null },
-  googleProvider: { id: "google" },
-}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("@/lib/firebase/authService", () => ({
-  sendTokenToServer: vi.fn().mockResolvedValue({ success: true }),
-  deleteSession: vi.fn().mockResolvedValue({ success: true }),
-  deleteUserAccount: vi.fn().mockResolvedValue({ success: true }),
-}));
-vi.mock("@/lib/utils/useFirebaseErrorHandler", () => ({
-  useFirebaseErrorHandler: () => ({
-    showFirebaseError: vi.fn(),
-    showErrorMessage: vi.fn(),
-    showSuccessMessage: vi.fn(),
-    showInfoMessage: vi.fn(),
-    showWarningMessage: vi.fn(),
+vi.mock("@/lib/supabase/authService", () => authService);
+vi.mock("@/contexts/notification-context", () => ({
+  useNotification: () => ({
+    addErrorNotification: vi.fn(),
+    addSuccessNotification: vi.fn(),
+    addWarningNotification: vi.fn(),
   }),
 }));
 
@@ -56,7 +45,7 @@ beforeEach(() => {
 describe("AuthProvider", () => {
   it("gives every consumer the same auth state", async () => {
     let release!: (value: unknown) => void;
-    firebaseAuth.signInWithPopup.mockReturnValue(
+    authService.startSignIn.mockReturnValue(
       new Promise((r) => (release = r))
     );
 
@@ -81,10 +70,9 @@ describe("AuthProvider", () => {
     );
     expect(screen.getByTestId("second-busy")).toHaveTextContent("true");
 
+    // A failed start ends the operation; a successful one leaves the page
     await act(async () => {
-      release({
-        user: { uid: "u", getIdToken: vi.fn().mockResolvedValue("t") },
-      });
+      release({ success: false, error: "nope" });
     });
 
     expect(screen.getByTestId("first-provider")).toHaveTextContent("idle");

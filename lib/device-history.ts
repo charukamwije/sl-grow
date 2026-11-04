@@ -100,11 +100,6 @@ export function useDeviceHistory<T>(store: Store<T>): T[] {
 /** Join page: course modules whose quiz was passed on this device (newest first) */
 export type DeviceLearning = { track: string; module: string; passedAt: string };
 
-/** Join page: certification applications sent from this device */
-export type DeviceApplication = { ref: string; track: string; createdAt: string };
-
 export const DEVICE_LEARNING_KEY = "aswedduma_learning";
-export const DEVICE_APPLICATIONS_KEY = "aswedduma_applications";
 
 export const deviceLearning = createStore<DeviceLearning>(DEVICE_LEARNING_KEY);
-export const deviceApplications = createStore<DeviceApplication>(DEVICE_APPLICATIONS_KEY);

@@ -11,6 +11,10 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import PlannerWizard from "@/components/planner/PlannerWizard";
 import ShopView from "@/components/shop/ShopView";
+import { GUIDES } from "@/lib/data/guides";
+import { guideIdsByVeg } from "@/lib/guides";
+import { CatalogProvider } from "@/contexts/catalog-context";
+import { PRODUCTS } from "@/lib/data/products";
 import { CART_STORAGE_KEY, CartProvider } from "@/contexts/cart-context";
 import { LanguageProvider } from "@/contexts/language-context";
 import { NotificationProvider } from "@/contexts/notification-context";
@@ -40,7 +44,9 @@ function renderApp(ui: ReactNode) {
     <SessionProvider user={null} accountsEnabled={false}>
       <NotificationProvider>
         <LanguageProvider>
-          <CartProvider uid={null}>{ui}</CartProvider>
+          <CatalogProvider products={PRODUCTS}>
+            <CartProvider uid={null}>{ui}</CartProvider>
+          </CatalogProvider>
         </LanguageProvider>
       </NotificationProvider>
     </SessionProvider>
@@ -166,7 +172,7 @@ describe("the planner wizard", () => {
 
 describe("the shop", () => {
   it("finds green chili products and hides the rest (AC-11)", async () => {
-    renderApp(<ShopView />);
+    renderApp(<ShopView guideIds={guideIdsByVeg(GUIDES)} />);
 
     await userEvent.type(screen.getByRole("searchbox"), "chili");
 
@@ -176,7 +182,7 @@ describe("the shop", () => {
   });
 
   it("says so when nothing matches (FR-S-05)", async () => {
-    renderApp(<ShopView />);
+    renderApp(<ShopView guideIds={guideIdsByVeg(GUIDES)} />);
 
     await userEvent.type(screen.getByRole("searchbox"), "zzzz");
 
@@ -187,7 +193,7 @@ describe("the shop", () => {
     renderApp(
       <>
         <Header />
-        <ShopView />
+        <ShopView guideIds={guideIdsByVeg(GUIDES)} />
       </>
     );
 
@@ -277,7 +283,7 @@ describe("switching language (AC-08)", () => {
     renderApp(
       <>
         <Header />
-        <ShopView />
+        <ShopView guideIds={guideIdsByVeg(GUIDES)} />
       </>
     );
 
@@ -289,79 +295,9 @@ describe("switching language (AC-08)", () => {
   });
 });
 
-describe("checkout", () => {
+describe("the cart", () => {
   beforeEach(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({ s_tomato: 2 }));
-  });
-
-  it("asks for a name and phone and opens nothing (AC-05)", async () => {
-    renderApp(<CartView />);
-
-    await userEvent.click(screen.getByRole("button", { name: /send order/i }));
-
-    expect(
-      await screen.findByText("Please enter your name and phone number.")
-    ).toBeInTheDocument();
-    expect(window.open).not.toHaveBeenCalled();
-  });
-
-  it("asks for an address for delivery (AC-06)", async () => {
-    renderApp(<CartView />);
-
-    await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
-    await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
-    await userEvent.click(screen.getByRole("radio", { name: "Delivery" }));
-    await userEvent.click(screen.getByRole("button", { name: /send order/i }));
-
-    expect(
-      await screen.findByText("Please enter a delivery address.")
-    ).toBeInTheDocument();
-    expect(window.open).not.toHaveBeenCalled();
-  });
-
-  it("opens WhatsApp with the order and saves nothing to a server for a guest (AC-07, AC-17)", async () => {
-    renderApp(<CartView />);
-
-    await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
-    await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
-    await userEvent.click(screen.getByRole("button", { name: /send order/i }));
-
-    expect(window.open).toHaveBeenCalledTimes(1);
-    const url = decodeURIComponent(vi.mocked(window.open).mock.calls[0][0] as string);
-    // The shop's WhatsApp Business number
-    expect(url).toMatch(/^https:\/\/wa\.me\/94768683639\?text=/);
-    expect(url).toContain("Name: Nimal");
-    expect(url).toContain("[S-TOMATO]");
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("gives the order a short reference, shows it and keeps it on the device", async () => {
-    renderApp(<CartView />);
-
-    await userEvent.type(screen.getByLabelText(/your name/i), "Nimal");
-    await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
-    await userEvent.click(screen.getByRole("button", { name: /send order/i }));
-
-    const url = decodeURIComponent(vi.mocked(window.open).mock.calls[0][0] as string);
-    const ref = url.match(/Reference: (ASW-[A-Z0-9]{6})/)![1];
-
-    // On screen, ready to quote
-    expect(screen.getByRole("status")).toHaveTextContent(ref);
-    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
-
-    // On the device, without the customer's personal details
-    const orders = JSON.parse(localStorage.getItem(DEVICE_ORDERS_KEY)!);
-    expect(orders).toHaveLength(1);
-    expect(orders[0]).toMatchObject({ ref, method: "pickup", total: 160 });
-    expect(orders[0].items[0]).toMatchObject({ code: "S-TOMATO", qty: 2 });
-    expect(JSON.stringify(orders[0])).not.toContain("Nimal");
-    expect(JSON.stringify(orders[0])).not.toContain("0771234567");
-  });
-
-  it("shows no number warning now the shop's number is set (AC-12)", () => {
-    renderApp(<CartView />);
-
-    expect(screen.queryByText(/OWNER_WHATSAPP/)).not.toBeInTheDocument();
   });
 
   it("shows the empty-cart message and no checkout form (FR-C-04)", () => {
@@ -370,7 +306,7 @@ describe("checkout", () => {
 
     expect(screen.getByText(/your cart is empty/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /send order/i })
+      screen.queryByRole("heading", { name: /place your order|sign in to place/i })
     ).not.toBeInTheDocument();
   });
 });

@@ -2,26 +2,27 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
-import { GUIDES, type Guide } from "@/lib/data/guides";
+import type { GuideSummary } from "@/lib/guides";
 import { VEGETABLES } from "@/lib/data/vegetables";
 
 type GuideListProps = {
+  guides: GuideSummary[];
   /** The guide being read, highlighted in the list */
   currentId?: string;
   compact?: boolean;
 };
 
-const daysFor = (guide: Guide) =>
+const daysFor = (guide: GuideSummary) =>
   VEGETABLES.find((veg) => veg.id === guide.vegId)?.daysToHarvest;
 
 // FR-G-01: every guide, selectable. Big pictures first, few words.
-export default function GuideList({ currentId, compact }: GuideListProps) {
+export default function GuideList({ guides, currentId, compact }: GuideListProps) {
   const { t, l } = useLanguage();
 
   if (compact) {
     return (
       <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-        {GUIDES.map((guide) => (
+        {guides.map((guide) => (
           <li key={guide.id} className="shrink-0">
             <Link
               href={`/guides/${guide.id}`}
@@ -43,7 +44,7 @@ export default function GuideList({ currentId, compact }: GuideListProps) {
 
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {GUIDES.map((guide) => {
+      {guides.map((guide) => {
         const days = daysFor(guide);
         return (
           <li key={guide.id}>
@@ -61,7 +62,7 @@ export default function GuideList({ currentId, compact }: GuideListProps) {
               <span className="text-xs text-gray-500">
                 {days
                   ? `⏱️ ${t("guides.firstHarvest", { n: days })}`
-                  : `👣 ${t("guides.stepsCount", { n: guide.steps.length })}`}
+                  : `👣 ${t("guides.stepsCount", { n: guide.stepCount })}`}
               </span>
             </Link>
           </li>

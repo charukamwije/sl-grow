@@ -1,17 +1,25 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME } from "@/lib/firebase/session";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
+import { STATIC_CATALOG } from "@/lib/products";
 import { cookieJar } from "../helpers/cookie-jar";
-import { firestoreDouble } from "../helpers/firestore-double";
+import { stubSupabaseEnv, supabaseDouble } from "../helpers/supabase-double";
 
-const adminAuth = vi.hoisted(() => ({
-  verifySessionCookie: vi.fn(),
-}));
-
-vi.mock("@/lib/firebase/admin", async () => {
-  const { firestoreDouble } = await import("../helpers/firestore-double");
-  return { adminAuth, adminDb: firestoreDouble.adminDb };
+vi.mock("@/lib/catalog-server", async () => {
+  const { STATIC_CATALOG } = await import("@/lib/products");
+  return { getCatalog: async () => STATIC_CATALOG };
+});
+vi.mock("@/lib/supabase/admin", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { adminDb: supabaseDouble.admin };
+});
+vi.mock("@/lib/supabase/server", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { createClient: async () => supabaseDouble.client };
+});
+vi.mock("@/lib/supabase/store", async (importOriginal) => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { ...(await importOriginal<object>()), ...supabaseDouble.store };
 });
 vi.mock("next/headers", async () => {
   const { cookieJar } = await import("../helpers/cookie-jar");
@@ -35,17 +43,14 @@ function planRequest(body: unknown) {
 }
 
 function givenSession(uid: string) {
-  cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "session-cookie" });
-  adminAuth.verifySessionCookie.mockResolvedValue({
-    uid,
-    firebase: { sign_in_provider: "google.com" },
-  });
+  supabaseDouble.givenUser(uid);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   cookieJar.reset();
-  firestoreDouble.reset();
+  supabaseDouble.reset();
+  stubSupabaseEnv();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -54,7 +59,7 @@ describe("POST /api/plans", () => {
     const response = await POST(planRequest({ inputs: defaultInputs() }));
 
     expect(response.status).toBe(401);
-    expect(firestoreDouble.add).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.insertPlan).not.toHaveBeenCalled();
   });
 
   it("stores the plan recomputed on the server under the session's uid", async () => {
@@ -67,12 +72,12 @@ describe("POST /api/plans", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(firestoreDouble.add).toHaveBeenCalledWith(
-      "users/user-1/plans",
+    expect(supabaseDouble.store.insertPlan).toHaveBeenCalledWith(
+      "user-1",
       expect.objectContaining({
         people: 4,
         space: 60,
-        total: computePlan(inputs).shoppingTotal,
+        total: computePlan(inputs, STATIC_CATALOG).shoppingTotal,
       })
     );
   });

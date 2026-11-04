@@ -9,6 +9,7 @@ import { BEAT_MS } from "@/components/landing/StoryRotator";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import { STRINGS } from "@/lib/i18n/strings";
 import { computePlan, defaultInputs } from "@/lib/planner/calc";
+import { STATIC_CATALOG } from "@/lib/products";
 import { formatLKR } from "@/lib/products";
 import { renderWithLanguage as render } from "./render";
 import "./setup";
@@ -137,7 +138,7 @@ describe("the landing page", () => {
 
     // The page text is whitespace-normalised before matching, but the expected
     // string is not, so its non-breaking space has to be normalised here too
-    const monthly = formatLKR(computePlan(defaultInputs()).savings.monthly).replace(/\s/g, " ");
+    const monthly = formatLKR(computePlan(defaultInputs(), STATIC_CATALOG).savings.monthly).replace(/\s/g, " ");
     expect(screen.getByText(monthly)).toBeInTheDocument();
   });
 

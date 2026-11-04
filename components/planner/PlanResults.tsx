@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
@@ -9,7 +10,7 @@ import { useSession } from "@/contexts/session-context";
 import { devicePlans } from "@/lib/device-history";
 import { generateOrderRef, ORDER_REF_PREFIX } from "@/lib/order/reference";
 import type { PlanResult, PlannerInputs, PlanRow } from "@/lib/planner/calc";
-import { formatLKR, formatNumber, getProduct } from "@/lib/products";
+import { formatLKR, formatNumber } from "@/lib/products";
 import ProductTable from "../shop/ProductTable";
 import Loading from "../icons/Loading";
 import { btnPrimary, btnSecondary, card, muted, subheading } from "../ui/styles";
@@ -26,6 +27,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
   const router = useRouter();
   const { t, l } = useLanguage();
   const { addMany } = useCart();
+  const { getProduct } = useCatalog();
   const { user } = useSession();
   const { addSuccessNotification, addErrorNotification } =
     useNotification();
@@ -182,7 +184,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
                       {row.plants} / {row.plantsNeeded}
                     </td>
                     <td className="num">{formatNumber(row.spaceUsed)}</td>
-                    <td>{l(getProduct(row.containerId)!.name)}</td>
+                    <td>{l(getProduct(row.containerId)?.name ?? { en: row.containerId, si: row.containerId, ta: row.containerId })}</td>
                     <td className="num">{Math.round(row.coverage * 100)}%</td>
                     <td>{harvestPattern(row)}</td>
                   </tr>

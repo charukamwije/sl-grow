@@ -8,8 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import JoinPage from "@/components/join/JoinPage";
 import { LanguageProvider } from "@/contexts/language-context";
 import { NotificationProvider } from "@/contexts/notification-context";
+import { SessionProvider, type SessionUser } from "@/contexts/session-context";
+import type { OwnApplication } from "@/lib/certifications-server";
 import { CERT_TRACKS } from "@/lib/data/certifications";
-import { DEVICE_APPLICATIONS_KEY, DEVICE_LEARNING_KEY } from "@/lib/device-history";
+import { DEVICE_LEARNING_KEY } from "@/lib/device-history";
 import "./setup";
 
 // Node 26's own experimental localStorage shadows jsdom's; use a plain one
@@ -37,12 +39,49 @@ class MemoryStorage {
 
 vi.stubGlobal("localStorage", new MemoryStorage());
 
-function renderJoin(ui: ReactNode = <JoinPage />) {
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const auth = vi.hoisted(() => ({
+  loadingProvider: null,
+  isAuthLoading: false,
+  signInWithGoogle: vi.fn(),
+  signOut: vi.fn(),
+  deleteAccount: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/join" }));
+vi.mock("@/contexts/auth-context", () => ({ useAuth: () => auth }));
+
+const member: SessionUser = {
+  uid: "user-1",
+  displayName: "Kamala Silva",
+  email: "kamala@example.com",
+  role: "member",
+};
+
+const fetchMock = vi.fn();
+
+function renderJoin(ui: ReactNode = <JoinPage />, user: SessionUser | null = null) {
   return render(
-    <NotificationProvider>
-      <LanguageProvider>{ui}</LanguageProvider>
-    </NotificationProvider>
+    <SessionProvider user={user} accountsEnabled>
+      <NotificationProvider>
+        <LanguageProvider>{ui}</LanguageProvider>
+      </NotificationProvider>
+    </SessionProvider>
   );
+}
+
+function application(patch: Partial<OwnApplication> = {}): OwnApplication {
+  return {
+    id: "app-1",
+    ref: "APP-7K3P9Q",
+    track: "home-grower",
+    createdAt: "2026-11-03T08:00:00.000Z",
+    status: "applied",
+    adminNote: "",
+    certificateCode: null,
+    expiresAt: null,
+    ...patch,
+  };
 }
 
 const home = CERT_TRACKS[0];
@@ -63,9 +102,15 @@ function completeModules(trackId = "home-grower", count?: number) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   localStorage.clear();
   Element.prototype.scrollIntoView = vi.fn();
-  vi.spyOn(window, "open").mockReturnValue(null);
+  vi.stubGlobal("fetch", fetchMock);
+  fetchMock.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ success: true, id: "app-1", ref: "APP-7K3P9Q" }),
+  });
 });
 
 describe("the Join page", () => {
@@ -91,25 +136,21 @@ describe("the Join page", () => {
     );
   });
 
-  it("keeps the application locked until every module is done", () => {
+  it("picks up the course where the learner stopped", () => {
     completeModules("home-grower", 2);
     renderJoin();
 
-    expect(screen.getByText("Finish the course to unlock your application.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send application/i })).not.toBeInTheDocument();
-    // Picks up where the learner stopped
     expect(screen.getByRole("link", { name: /continue the course/i })).toHaveAttribute(
       "href",
       "/join/home-grower/learn?module=3"
     );
   });
 
-  it("unlocks the application once the course is complete", () => {
+  it("marks a finished course as ready to apply", () => {
     completeModules();
-    renderJoin();
+    renderJoin(<JoinPage />, member);
 
-    expect(screen.getByText("Course completed. Your application is unlocked.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /send application/i })).toBeInTheDocument();
+    expect(screen.getByText("Course completed. You are ready to apply.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /review the course/i })).toBeInTheDocument();
   });
 
@@ -121,39 +162,101 @@ describe("the Join page", () => {
     ).toBeInTheDocument();
   });
 
-  it("sends the application on WhatsApp with an APP- reference", async () => {
-    completeModules();
+  it("asks a guest to sign in to apply", async () => {
     renderJoin();
 
+    expect(screen.getByText("Sign in to apply")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send application" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign in with Google" }));
+    expect(auth.signInWithGoogle).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a member apply without finishing the course first", async () => {
+    renderJoin(<JoinPage />, member);
+
     // Details are required
-    await userEvent.click(screen.getByRole("button", { name: /send application/i }));
+    await userEvent.clear(screen.getByLabelText(/your name/i));
+    await userEvent.click(screen.getByRole("button", { name: "Send application" }));
     expect(
       await screen.findByText("Please enter your name, phone number and district or town.")
     ).toBeInTheDocument();
-    expect(window.open).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
 
     await userEvent.type(screen.getByLabelText(/your name/i), "Kamala");
     await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
     await userEvent.type(screen.getByLabelText(/district or town/i), "Kandy");
-    await userEvent.click(screen.getByRole("button", { name: /send application/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Send application" }));
 
-    const url = decodeURIComponent(vi.mocked(window.open).mock.calls[0][0] as string);
-    expect(url).toContain("Certification application - Aswedduma");
-    expect(url).toContain(`Path: ${home.name.en}`);
-    expect(url).toContain("District or town: Kandy");
-    expect(url).toContain("Knowledge check: passed (3/3 modules)");
-    const ref = url.match(/Reference: (APP-[A-Z0-9]{6})/)![1];
+    expect(fetchMock).toHaveBeenCalledWith("/api/certifications", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      track: "home-grower",
+      name: "Kamala",
+      phone: "0771234567",
+      location: "Kandy",
+      notes: "",
+    });
 
-    // On screen in the confirmation, and again in the list of applications
-    expect(screen.getAllByText(ref)).toHaveLength(2);
+    // The reference the server made, with the next steps
+    expect(await screen.findByText("Application sent")).toBeInTheDocument();
+    expect(screen.getByText("APP-7K3P9Q")).toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalled();
     // The badge preview carries the applicant's name
     expect(screen.getByText("Kamala")).toBeInTheDocument();
-    // And the application is listed on this device
-    expect(JSON.parse(localStorage.getItem(DEVICE_APPLICATIONS_KEY)!)[0]).toMatchObject({
-      ref,
-      track: "home-grower",
+  });
+
+  it("pre-fills the member's name", () => {
+    renderJoin(<JoinPage />, member);
+
+    expect(screen.getByLabelText(/your name/i)).toHaveValue("Kamala Silva");
+  });
+
+  it("shows an open application instead of a second form", () => {
+    renderJoin(<JoinPage applications={[application({ status: "on_hold", adminNote: "Please send a photo of your garden." })]} />, member);
+
+    expect(screen.getByText(/You already have an open application/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Send application" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("On hold").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Please send a photo of your garden.").length).toBeGreaterThan(0);
+  });
+
+  it("says so when the server finds an open application", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ success: false, error: "open" }),
     });
+    renderJoin(<JoinPage />, member);
+
+    await userEvent.type(screen.getByLabelText(/phone number/i), "0771234567");
+    await userEvent.type(screen.getByLabelText(/district or town/i), "Kandy");
+    await userEvent.click(screen.getByRole("button", { name: "Send application" }));
+
+    expect(
+      await screen.findByText("You already have an open application for this path. Follow it below.")
+    ).toBeInTheDocument();
+  });
+
+  it("lists the member's applications, linking a certificate", () => {
+    renderJoin(
+      <JoinPage
+        applications={[
+          application({
+            status: "certified",
+            certificateCode: "ASW-C-7K3P9Q",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          }),
+        ]}
+      />,
+      member
+    );
+
     expect(screen.getByRole("heading", { name: "Your applications" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /View certificate/ })).toHaveAttribute(
+      "href",
+      "/verify/ASW-C-7K3P9Q"
+    );
+    expect(screen.getByText("Valid until 2099-01-01")).toBeInTheDocument();
   });
 
   it("switches to another path with its own course", async () => {

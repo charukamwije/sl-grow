@@ -1,77 +1,10 @@
 /**
- * WhatsApp message builders. Order text is always English whatever language
- * the customer uses (FR-O-05), so the shop reads every order the same way.
+ * WhatsApp message builders for plantation enquiries, always in English
+ * whatever language the customer uses, so the shop reads every message the
+ * same way. Orders and certification applications are made in the app
+ * instead (lib/order/checkout.ts, lib/certification/status.ts).
  */
 import { OWNER_WHATSAPP } from "../shop-config";
-import {
-  cartTotal,
-  formatLKR,
-  getProduct,
-  lineTotal,
-  productCode,
-  type Cart,
-} from "../products";
-
-export type CheckoutMethod = "pickup" | "delivery";
-
-export type CheckoutDetails = {
-  name: string;
-  phone: string;
-  method: CheckoutMethod;
-  address: string;
-  notes: string;
-};
-
-export type CheckoutError = "nameAndPhone" | "address" | "emptyCart";
-
-/** FR-O-01, FR-O-02 */
-export function validateCheckout(
-  details: CheckoutDetails,
-  cart: Cart
-): CheckoutError | null {
-  if (Object.keys(cart).length === 0) return "emptyCart";
-  if (!details.name.trim() || !details.phone.trim()) return "nameAndPhone";
-  if (details.method === "delivery" && !details.address.trim()) return "address";
-  return null;
-}
-
-/** FR-O-04, with the order reference the customer quotes to follow up */
-export function buildOrderMessage(
-  details: CheckoutDetails,
-  cart: Cart,
-  ref: string
-): string {
-  const lines = [
-    "New order - Aswedduma",
-    `Reference: ${ref}`,
-    "",
-    `Name: ${details.name.trim()}`,
-    `Phone: ${details.phone.trim()}`,
-    `Method: ${details.method === "delivery" ? "Delivery" : "Pickup"}`,
-  ];
-
-  if (details.method === "delivery") {
-    lines.push(`Address: ${details.address.trim()}`);
-  }
-
-  lines.push("", "Items:");
-
-  for (const [id, qty] of Object.entries(cart)) {
-    const product = getProduct(id);
-    if (!product) continue;
-    lines.push(
-      `- [${productCode(id)}] ${product.name.en} x ${qty} = ${formatLKR(lineTotal(id, qty))}`
-    );
-  }
-
-  lines.push("", `Total before delivery: ${formatLKR(cartTotal(cart))}`);
-
-  if (details.notes.trim()) {
-    lines.push("", `Notes: ${details.notes.trim()}`);
-  }
-
-  return lines.join("\n");
-}
 
 /** FR-I-07 */
 export function buildEnquiryMessage(
@@ -91,36 +24,4 @@ export function buildEnquiryMessage(
 
 export function waLink(message: string, number: string = OWNER_WHATSAPP): string {
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
-}
-
-export type ApplicationDetails = {
-  name: string;
-  phone: string;
-  location: string;
-  notes: string;
-};
-
-/** Join page: a certification application, in English like orders */
-export function buildApplicationMessage(
-  trackName: string,
-  details: ApplicationDetails,
-  ref: string,
-  quizScore: string
-): string {
-  const lines = [
-    "Certification application - Aswedduma",
-    `Reference: ${ref}`,
-    "",
-    `Path: ${trackName}`,
-    `Name: ${details.name.trim()}`,
-    `Phone: ${details.phone.trim()}`,
-    `District or town: ${details.location.trim()}`,
-    `Knowledge check: passed (${quizScore})`,
-  ];
-
-  if (details.notes.trim()) {
-    lines.push("", `About me: ${details.notes.trim()}`);
-  }
-
-  return lines.join("\n");
 }

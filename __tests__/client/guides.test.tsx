@@ -6,10 +6,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GuideView from "@/components/guides/GuideView";
 import GuidesIndex from "@/components/guides/GuidesIndex";
+import { CatalogProvider } from "@/contexts/catalog-context";
+import { PRODUCTS } from "@/lib/data/products";
 import { CartProvider } from "@/contexts/cart-context";
 import { LanguageProvider, useLanguage } from "@/contexts/language-context";
 import { NotificationProvider } from "@/contexts/notification-context";
-import { getGuide } from "@/lib/data/guides";
+import { GUIDES, getGuide } from "@/lib/data/guides";
+import { summarizeGuides } from "@/lib/guides";
 import "./setup";
 
 // Node 26's own experimental localStorage shadows jsdom's; use a plain one
@@ -50,10 +53,12 @@ function renderGuide(id = "tomato", extra?: React.ReactNode) {
   return render(
     <NotificationProvider>
       <LanguageProvider>
-        <CartProvider uid={null}>
-          {extra}
-          <GuideView id={id} />
-        </CartProvider>
+        <CatalogProvider products={PRODUCTS}>
+          <CartProvider uid={null}>
+            {extra}
+            <GuideView guide={getGuide(id)!} guides={summarizeGuides(GUIDES)} />
+          </CartProvider>
+        </CatalogProvider>
       </LanguageProvider>
     </NotificationProvider>
   );
@@ -194,7 +199,7 @@ describe("the list of guides", () => {
   it("shows big picture cards with the days to harvest", () => {
     render(
       <LanguageProvider>
-        <GuidesIndex />
+        <GuidesIndex guides={summarizeGuides(GUIDES)} />
       </LanguageProvider>
     );
 

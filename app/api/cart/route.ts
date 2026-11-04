@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { resolveUid } from "@/lib/firebase/route-auth";
-import { userCart } from "@/lib/firebase/store";
-import { sanitizeCart } from "@/lib/products";
+import { resolveUid } from "@/lib/supabase/route-auth";
+import { getCart, saveCart } from "@/lib/supabase/store";
+import { getCatalog } from "@/lib/catalog-server";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
 
 // Read the signed-in customer's cloud cart
@@ -13,11 +12,11 @@ export async function GET() {
   }
 
   try {
-    const snapshot = await userCart(uid).get();
+    const { sanitizeCart } = await getCatalog();
 
     return NextResponse.json({
       success: true,
-      cart: sanitizeCart(snapshot.get("items")),
+      cart: sanitizeCart(await getCart(uid)),
     });
   } catch (error) {
     console.error("Cart read error:", error);
@@ -52,13 +51,9 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  const cart = sanitizeCart(raw);
-
   try {
-    await userCart(uid).set({
-      items: cart,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    const cart = (await getCatalog()).sanitizeCart(raw);
+    await saveCart(uid, cart);
 
     return NextResponse.json({ success: true, cart });
   } catch (error) {

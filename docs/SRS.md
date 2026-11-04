@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS): Aswedduma (අස්වැද්දුම)
 
-Version 3.5 · Nov 3, 2026 · Prepared by Charuka Wijethunga
+Version 3.7 · Nov 4, 2026 · Prepared by Charuka Wijethunga
 
 ## Revision history
 
@@ -14,12 +14,14 @@ Version 3.5 · Nov 3, 2026 · Prepared by Charuka Wijethunga
 | 3.3 | 2026-11-02 | Charuka Wijethunga | Guests can use every function. Each order gets a short reference (FR-O-07). Guests' orders and plans are kept on their device (FR-A-07, 4.5). |
 | 3.4 | 2026-11-03 | Charuka Wijethunga | Added the Join page: Aswedduma Certified, with Learn, Apply and Get certified steps and digital badges for home growers, seeds and plantations (3.15). |
 | 3.5 | 2026-11-03 | Charuka Wijethunga | Each certification path is now a full free course: 3 modules of 3 lessons, each module ending in a quiz, in a course player (FR-J-02, FR-J-03, FR-J-07). |
+| 3.6 | 2026-11-04 | Charuka Wijethunga | Moved accounts from Firebase to Supabase: Supabase Auth for Google sign-in (a redirect instead of a popup) and Supabase Postgres for the cart, orders and plans (2.1, FR-A-02, 4.7). |
+| 3.7 | 2026-11-04 | Charuka Wijethunga | Checkout moved into the app: signed-in customers only, cash on delivery or bank transfer with a slip upload, order statuses and a separate paid flag managed by admins (3.9, FR-A-05, FR-A-12). WhatsApp is kept for enquiries and applications. |
 
 ## 1. Introduction
 
 ### 1.1 Purpose
 
-This document specifies the functional and non-functional requirements of Aswedduma (අස්වැද්දුම), a home vegetable garden shop and planner: a web application for Sri Lankan households. It helps a household plan a home vegetable garden, estimate its food cost, buy the seeds, seedlings, containers and supplies it needs, follow step-by-step grow guides, and send the order to the shop through WhatsApp. It also helps a plantation investor estimate the return on planting Ceylon cinnamon or tea.
+This document specifies the functional and non-functional requirements of Aswedduma (අස්වැද්දුම), a home vegetable garden shop and planner: a web application for Sri Lankan households. It helps a household plan a home vegetable garden, estimate its food cost, buy the seeds, seedlings, containers and supplies it needs, follow step-by-step grow guides, and order them online, paying on delivery or by bank transfer. It also helps a plantation investor estimate the return on planting Ceylon cinnamon or tea.
 
 ### 1.2 Scope
 
@@ -28,7 +30,7 @@ In scope:
 - Garden planner, step by step (household consumption, cost, space-based grow plan, shopping list, savings, health notes)
 - Shop catalogue with search, categories and product codes
 - Cart stored in the browser, and in the customer's account when signed in
-- Checkout that opens a pre-filled WhatsApp order message
+- Online checkout for signed-in customers, paid by cash on delivery or bank transfer, with order status tracking
 - Grow guides for package arrival, soil preparation and 11 Sri Lankan vegetables
 - English, Sinhala and Tamil language support
 - Optional customer accounts with Google sign-in: cloud cart, order history and saved plans
@@ -41,7 +43,7 @@ Out of scope:
 - Automatic delivery charge calculation
 - Admin dashboard for editing products (products are edited in code)
 - Shipment tracking
-- Editing or deleting orders and plans in the app (shop staff use the Firebase console)
+- Editing or deleting orders and plans in the app (shop staff see orders, read only, in the admin console)
 
 ### 1.3 Definitions
 
@@ -55,7 +57,7 @@ Out of scope:
 | Hardening off | Gradually moving seedlings from shade to full sun before planting |
 | Grow bag | Fabric or plastic bag used as a planting container |
 | Home coverage | Share of a household's yearly need for a vegetable that the garden can supply |
-| Guest mode | Using the app without signing in, or on a deployment without Firebase configured |
+| Guest mode | Using the app without signing in, or on a deployment without Supabase configured |
 | NPV, IRR | Net present value; internal rate of return |
 
 ### 1.4 References
@@ -63,7 +65,7 @@ Out of scope:
 - Product catalogue, vegetable planning data, guide content and plantation assumptions (data files under `lib/data/`)
 - Google Fonts: Noto Sans Sinhala and Noto Sans Tamil, bundled at build time
 - WhatsApp click-to-chat link format (https://wa.me/\<number>?text=\<message>)
-- Firebase Authentication and Cloud Firestore
+- Supabase Auth and Supabase Postgres
 
 ### 1.5 Conventions
 
@@ -73,14 +75,14 @@ Requirement IDs: FR = functional, NFR = non-functional, BR = business rule, AC =
 
 ### 2.1 Product perspective
 
-The product is a Next.js web application. Calculations, the catalogue and the guides all run in the browser. The cart is saved in the browser's local storage. A small server verifies sign-in sessions and is the only part that reads and writes Firestore, through the Firebase Admin SDK. Without Firebase settings, the app runs entirely in guest mode.
+The product is a Next.js web application. Calculations, the catalogue and the guides all run in the browser. The cart is saved in the browser's local storage. A small server runs Google sign-in, verifies sessions and is the only part that reads and writes the Supabase database, using the service-role key. Without Supabase settings, the app runs entirely in guest mode.
 
 ### 2.2 User classes
 
 | User | Description | Main needs |
 | --- | --- | --- |
 | Household gardener (primary) | Lives in a house, balcony or flat. Mostly uses a mobile phone. May prefer Sinhala or Tamil | Know what to grow, cost, space, buy the right items, follow simple steps |
-| Shop owner or staff (secondary) | Receives WhatsApp orders and maintains prices and products | Clear order messages with product codes, accurate prices |
+| Shop owner or staff (secondary) | Receives orders in the admin console, moves them through their status, checks bank transfers, and maintains products and guides | Clear orders with product codes, accurate prices, a quick view of what needs attention |
 | Plantation investor | A person or company that wants to plant cinnamon or tea. Uses the Plantation section only | Setup cost, payback, return, workers, how to start |
 
 ### 2.3 Operating environment
@@ -88,12 +90,12 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 - Browsers: current and previous major versions of Chrome, Edge, Safari and Firefox
 - Devices: Android and iOS phones (minimum width 320 px), tablets and desktop computers
 - Server: any Node.js 24+ host that runs Next.js (e.g. Vercel)
-- An internet connection is needed to load the app, send the WhatsApp order and use accounts
+- An internet connection is needed to load the app, place orders and use accounts
 
 ### 2.4 Design and implementation constraints
 
 - Next.js (App Router), React and TypeScript, styled with Tailwind CSS
-- Firestore is reached only from the server through the Admin SDK. Firestore security rules deny all browser access
+- The database is reached only from the server with the service-role key. Row level security, with no policies, denies all browser access
 - All currency in LKR, formatted for the en-LK locale
 - Shop WhatsApp number is set in code (`OWNER_WHATSAPP` in `lib/shop-config.ts`)
 - Products, vegetables, guides, plantation assumptions and interface text are kept in data files
@@ -102,8 +104,8 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 
 - Prices, yields and growing times are estimates until the shop confirms them
 - Customers have WhatsApp on their phone
-- The shop owner checks each WhatsApp order manually and confirms delivery charges
-- Accounts depend on a Firebase project with Google sign-in and Firestore enabled
+- The shop owner checks each new order, calls the customer to confirm the delivery charge, and checks bank transfers against the bank
+- Accounts depend on a Supabase project with the Google provider enabled and the tables from `supabase/migrations` created
 
 ## 3. Functional Requirements
 
@@ -186,13 +188,14 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| FR-O-01 | Name and phone number are required before an order can be sent. | M |
+| FR-O-01 | Placing an order requires a signed-in account; a guest's cart is kept and the cart asks them to sign in with Google. Name and phone number are required. | M |
 | FR-O-02 | The customer shall choose Pickup or Delivery. Delivery requires an address. | M |
 | FR-O-03 | Notes are optional. | S |
-| FR-O-04 | Sending the order shall open WhatsApp (wa.me link to the shop number) with a pre-filled message containing customer name, phone, method, address (if delivery), each item with product code, quantity and line total, total before delivery, and notes. | M |
-| FR-O-05 | The order message shall be in English, whatever language the customer uses. | M |
-| FR-O-06 | A guest's order shall not be stored on any server; the shop receives it only through WhatsApp. A signed-in customer's order is also saved to their account (FR-A-05). | M |
-| FR-O-07 | Each order shall get a short reference, e.g. ASW-7K3P9Q: "ASW-" and six characters that cannot be misread (no 0/O, 1/I/L or U/V). It shall appear in the WhatsApp message, on screen after sending (with a Copy button) and on the Account page. The customer quotes it to the shop to follow up. | M |
+| FR-O-04 | The customer shall pay by cash on delivery (cash at pickup for pickup orders) or by bank transfer. | M |
+| FR-O-05 | Placing the order saves it to the customer's account, empties the cart and opens the order's page, which shows the reference, status, payment and items. | M |
+| FR-O-06 | For bank transfer, the order page shall show the shop's bank details (set by a super admin) and ask for the order reference as the payment note. The customer may upload a JPEG, PNG, WebP or PDF of the transfer slip (up to 5 MB) while the order is open and unpaid. Slips are private to the customer and the shop's admins. | M |
+| FR-O-08 | An order's status is Created, Received, Out for delivery (Ready for pickup for pickup orders), Completed or Cancelled; whether it is paid is kept separately. Only admins change either, and the customer sees every change. | M |
+| FR-O-07 | Each order shall get a short reference, e.g. ASW-7K3P9Q: "ASW-" and six characters that cannot be misread (no 0/O, 1/I/L or U/V). The server makes it when the order is placed, and it appears on the order's page (with a Copy button) and on the Account page. The customer quotes it to the shop to follow up. | M |
 
 ### 3.10 Grow guides
 
@@ -212,7 +215,7 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 | --- | --- | --- |
 | FR-L-01 | The user shall choose English, Sinhala (සිංහල) or Tamil (தமிழ்) from buttons at the top of every page. | M |
 | FR-L-02 | Changing language shall update all visible text, including product names, vegetable names, guide steps, planner results and form labels. The Plantation section is English only until translated (OI-20). | M |
-| FR-L-03 | The WhatsApp order message shall remain in English (see FR-O-05). | M |
+| FR-L-03 | WhatsApp enquiry and application messages shall remain in English. | M |
 | FR-L-04 | The default language shall be English. | M |
 
 ### 3.12 Messages
@@ -226,17 +229,17 @@ The product is a Next.js web application. Calculations, the catalogue and the gu
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | FR-A-01 | Signed-out users shall see a Sign in button in the header and a sign-in card on the Account page. | M |
-| FR-A-02 | Customers shall sign in with their Google account (Firebase Authentication, Google provider) using a popup window. | M |
+| FR-A-02 | Customers shall sign in with their Google account (Supabase Auth, Google provider). The browser goes to Google and returns to the page it started from. | M |
 | FR-A-03 | After sign-in the header shows the customer's first name. The Account page shows name, email and photo. | M |
 | FR-A-04 | The cart shall be saved to the customer's account after each change. On sign-in, the cloud cart shall be merged with the device cart, keeping the larger quantity for each product (BR-20). | M |
-| FR-A-05 | When a signed-in customer sends an order, the order shall be saved with their user ID, customer details, items with codes, quantities and prices, method, and total (BR-21). | M |
+| FR-A-05 | When a signed-in customer places an order, it shall be saved with their user ID, customer details, items with codes, quantities and prices, method, payment method and total (BR-21). | M |
 | FR-A-06 | The Account page shall list the customer's own orders, newest first, with date, items and total. | M |
 | FR-A-07 | Anyone can save a plan. A guest's plan is saved on their device and listed on the Account page; a signed-in customer's plan is saved to their account (FR-A-08). | M |
 | FR-A-08 | Signed-in customers can save planner results and see them under My saved plans, with date, people, space and total. | M |
 | FR-A-09 | Signing out returns the app to guest mode. The device cart stays on the device. | S |
-| FR-A-10 | If Firebase is not configured, the Account page shall show a setup message, and the rest of the app shall work in guest mode. | M |
-| FR-A-11 | A customer shall be able to read only their own cart, orders and plans. The server shall enforce this by taking the user ID only from the verified session; Firestore rules deny all browser access. | M |
-| FR-A-12 | Customers cannot edit or delete orders or plans in the app. Shop staff manage them in the Firebase console. | M |
+| FR-A-10 | If Supabase is not configured, the Account page shall show a setup message, and the rest of the app shall work in guest mode. | M |
+| FR-A-11 | A customer shall be able to read only their own cart, orders and plans. The server shall enforce this by taking the user ID only from the verified session; row level security denies all browser access. | M |
+| FR-A-12 | Customers cannot edit or delete orders or plans in the app. Shop staff find orders in the admin console at /admin/orders (by reference, phone, name, date, status and payment) and change only their status and paid flag; the order's contents never change. | M |
 | FR-A-13 | A customer may delete their account after re-authenticating with Google. This removes their cart, orders and saved plans. | S |
 
 Guest customers' details are used only to create the WhatsApp message and are not stored.
@@ -301,19 +304,19 @@ Each guide contains names and, for the package and soil guides, time text in thr
 
 ### 4.6 Data sensitivity
 
-For guests, the system collects customer name, phone number and address only to create the WhatsApp message and does not store them. For signed-in customers, the same details are stored with each order in their account (4.7). A privacy notice and consent text are still to be written (OI-15).
+Guests cannot place orders, so no guest details are collected. For signed-in customers, the name, phone number and address are stored with each order in their account (4.7), and a bank transfer slip they upload is kept in private storage that only the shop's admins can open. A privacy notice and consent text are still to be written (OI-15).
 
-### 4.7 Cloud data (Firestore)
+### 4.7 Cloud data (Supabase)
 
-All paths sit under the customer's own user document. Only the server reads or writes them.
+Every row carries the customer's user ID. Only the server reads or writes them.
 
-| Path | Stored data | Who can read | Who can write |
+| Table | Stored data | Who can read | Who can write |
 | --- | --- | --- | --- |
-| users/{uid}/meta/cart | Cart items and quantities | Owner only | Owner only |
-| users/{uid}/orders/{id} | Customer details, items, total, method, time | Owner only (staff in console) | Owner creates; no edit or delete in the app |
-| users/{uid}/plans/{id} | Saved planner inputs and result | Owner only | Owner creates; no edit or delete in the app |
+| carts | Cart items and quantities, one row per customer | Owner only | Owner only |
+| orders | Customer details, items, total, method, time | Owner only (staff in the dashboard) | Owner creates; no edit or delete in the app |
+| plans | Saved planner inputs and result | Owner only | Owner creates; no edit or delete in the app |
 
-Deleting an account removes the whole `users/{uid}` tree (FR-A-13).
+Every row references the customer's Supabase Auth user with `ON DELETE CASCADE`, so deleting an account removes all of them (FR-A-13).
 
 ## 5. External Interface Requirements
 
@@ -330,9 +333,9 @@ None beyond the device screen and touch or keyboard input.
 
 ### 5.3 Software interfaces
 
-- Firebase Authentication: Google sign-in popup (browser) and session verification (server)
-- Cloud Firestore: cart, orders and saved plans for signed-in customers, through the server only
-- WhatsApp: click-to-chat link (wa.me) opens a new tab with the order or enquiry text
+- Supabase Auth: Google sign-in (started and finished by the server) and session verification
+- Supabase Postgres: cart, orders and saved plans for signed-in customers, through the server only
+- WhatsApp: click-to-chat link (wa.me) opens a new tab with a plantation enquiry, a certification application, or a general question
 - Browser local storage: saves the cart
 
 ### 5.4 Communication interfaces
@@ -350,10 +353,10 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | NFR-05 | Localization | Numbers and currency shall use the en-LK format. Text shall switch without reloading the page. |
 | NFR-06 | Reliability | Reloading the page shall keep the cart. Invalid planner inputs shall not stop the application. |
 | NFR-07 | Security | Guest data shall not be sent to any server. Signed-in customers' data shall be reachable only by its owner. State-changing requests shall be same-origin only. Customer input shall not be inserted as HTML. |
-| NFR-08 | Privacy | The application shall not use tracking or third-party analytics. Fonts are served from the app itself; the only third-party requests are Google sign-in and WhatsApp. |
+| NFR-08 | Privacy | The application shall not use tracking or third-party analytics. Fonts are served from the app itself; the only third-party requests are Google sign-in, WhatsApp, and product photos served from the Supabase project's storage. |
 | NFR-09 | Portability | The application shall work in the latest two versions of major browsers. |
 | NFR-10 | Maintainability | Prices, products, vegetables, guide text and plantation assumptions shall be in clearly marked data files so they can be edited without changing logic. |
-| NFR-11 | Deployability | The application shall build with `npm run build` and run on any Node.js host that supports Next.js. Without Firebase settings it shall still run, in guest mode. |
+| NFR-11 | Deployability | The application shall build with `npm run build` and run on any Node.js host that supports Next.js. Without Supabase settings it shall still run, in guest mode. |
 
 ## 7. Business Rules and Calculations
 
@@ -422,26 +425,26 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | AC-02 | Set the space too small for any plant and calculate | No vegetables planted. Message 'space too small' is shown. Shopping list is hidden |
 | AC-03 | Press Add this plan to cart | All plan lines appear in the cart with correct quantities. Cart tab opens |
 | AC-04 | Add an item, reload the page | The item is still in the cart |
-| AC-05 | Send an order without a name | Message asks for name and phone. No WhatsApp window opens |
-| AC-06 | Choose Delivery and leave address empty | Message asks for an address. No WhatsApp window opens |
-| AC-07 | Send a valid order | A WhatsApp window opens with the shop number, customer details, product codes and total |
+| AC-05 | Place an order without a phone number | Message asks for name and phone. No order is placed |
+| AC-06 | Choose Delivery and leave address empty | Message asks for an address. No order is placed |
+| AC-07 | Place a valid order | The order's page opens with its reference, status Order placed, and the items and total; the cart is empty |
 | AC-08 | Switch to Sinhala | Labels, product names, vegetable names, guides and planner results show Sinhala. Order message still in English |
 | AC-09 | Open Grow guide for Tomato | Stats strip (space, cost, harvest) and 9 steps appear, with product table and Add buttons |
 | AC-10 | Press Add in a guide product table | Item is added to the cart and the cart count increases |
 | AC-11 | Search 'chili' in the shop | Green chili products are shown. Non-matching products are hidden |
-| AC-12 | Shop WhatsApp number still set to placeholder | Cart shows the warning about the owner setting the number |
+| AC-12 | Shop WhatsApp number still set to placeholder | The footer and plantation enquiry say the number is coming soon |
 | AC-13 | Sign in with Google | Account page shows name, email and photo. Header shows the first name |
 | AC-14 | Add items on device A while signed in, then sign in on device B | Device B cart shows the same items with the larger quantities |
-| AC-15 | Send an order while signed in | Order appears in My orders with items and total. WhatsApp window opens |
+| AC-15 | Place an order while signed in | Order appears in My orders with its status, paid flag, items and total |
 | AC-16 | Signed in as customer A, try to read customer B's order | Access denied |
-| AC-17 | Send an order as a guest | WhatsApp window opens. No order is saved to any account |
+| AC-17 | Open the cart as a guest | The cart asks the guest to sign in with Google; no order form is shown |
 | AC-18 | Press Save this plan as a guest | Message confirms the plan was saved on the device. It is listed under My saved plans on the Account page |
-| AC-19 | Firebase not configured | Account page shows the setup message. Shop works in guest mode |
+| AC-19 | Supabase not configured | Account page shows the setup message. Shop works in guest mode |
 | AC-20 | Planner step 1 with space 0, then Next | Message asks for the space. Step does not change. Back returns to the previous step |
 | AC-21 | Planner step 2 with no vegetable ticked, then Next | Message asks for a vegetable. Step does not change |
 | AC-22 | Plantation: change the land size | All four result cards update at once. Payback and NPV match a hand calculation for one case |
 | AC-23 | Plantation: send an enquiry | WhatsApp opens with the crop and land size in the message |
-| AC-24 | Send an order as a guest | WhatsApp message and the confirmation on screen show the same ASW- reference. The Account page lists the order under that reference |
+| AC-24 | Place a bank transfer order and upload a slip | The order page shows the bank details and the ASW- reference as the payment note; after upload it says the slip was received, and the admin order page shows the slip |
 
 ## 9. Open Issues and Future Work
 
@@ -460,14 +463,14 @@ Planner, plantation and cart calculations happen in the browser. The browser cal
 | OI-11 | Future: stock levels and out-of-stock messages | Developer | Later |
 | OI-12 | Future: remember language and planner inputs on the device | Developer | Later |
 | OI-13 | Future: online payment (only if the shop chooses it) | Shop owner | Later |
-| OI-14 | Deploy the deny-all Firestore security rules. (No composite index is needed: history is ordered within each customer's own collection.) | Developer | High |
+| OI-14 | Run `supabase/migrations/0001_init.sql` on the production project, which creates the tables, turns on row level security and revokes browser access | Developer | High |
 | OI-15 | Write a customer privacy notice and consent text, shown before sign-in and checkout | Shop owner | High |
 | OI-16 | Confirm how long order and plan records are kept, including accounting needs. Account deletion currently removes the customer's orders too | Shop owner | High |
-| OI-17 | Test Google sign-in on target phones and in in-app browsers. Add a redirect fallback if the popup is blocked | Developer | Medium |
-| OI-18 | Confirm the Firebase billing plan and expected monthly usage | Shop owner | Medium |
+| OI-17 | Test Google sign-in on target phones and in in-app browsers, which Google may refuse to sign in from | Developer | Medium |
+| OI-18 | Confirm the Supabase plan and expected monthly usage. Free projects pause after a week without activity | Shop owner | Medium |
 | OI-19 | Validate all plantation figures (costs, yields, prices, timing) with the Sri Lanka Tea Board, the Export Development Board, the Tea Research Institute, an agronomist and an accountant | Shop owner | High |
 | OI-20 | Translate the Plantation section into Sinhala and Tamil | Translation reviewer | Medium |
-| OI-21 | Set the real Firebase project settings (`FIREBASE_ADMIN_SERVICE_ACCOUNT`, `NEXT_PUBLIC_FIREBASE_WEB_SDK_CONFIG`) in the hosting environment | Developer | High |
+| OI-21 | Set the real Supabase project settings (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`) in the hosting environment | Developer | High |
 | OI-22 | Translate the sign-in, sign-out and account deletion status messages, which are English only | Translation reviewer | Low |
 | OI-23 | Certificates: decide who reviews applications, the germination and field standards for each path, and how certificate IDs are issued and verified (a public verification page needs the database) | Shop owner | High |
 

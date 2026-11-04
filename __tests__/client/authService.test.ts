@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   deleteSession,
   deleteUserAccount,
-  sendTokenToServer,
-} from "@/lib/firebase/authService";
+  startSignIn,
+} from "@/lib/supabase/authService";
 
 const fetchMock = vi.fn();
 
@@ -21,54 +21,58 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("sendTokenToServer", () => {
-  it("posts the ID token as JSON to the sign-in route", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, uid: "user-1" }));
+describe("startSignIn", () => {
+  it("posts where to come back to and returns the Google URL", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, url: "https://accounts.google.com/o" })
+    );
 
-    await expect(sendTokenToServer("id-token")).resolves.toEqual({
+    await expect(startSignIn("/shop")).resolves.toEqual({
       success: true,
+      url: "https://accounts.google.com/o",
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/signin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: "id-token" }),
+      body: JSON.stringify({ next: "/shop", reauth: false }),
+    });
+  });
+
+  it("flags a re-authentication", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ success: true, url: "https://g" }));
+
+    await startSignIn("/account", true);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      next: "/account",
+      reauth: true,
     });
   });
 
   it("surfaces the server's error message on a rejected response", async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: false, error: "Recent sign-in required." }, false)
+      jsonResponse({ success: false, error: "Accounts are not set up on this site." }, false)
     );
 
-    await expect(sendTokenToServer("stale")).resolves.toEqual({
+    await expect(startSignIn("/")).resolves.toEqual({
       success: false,
-      error: "Recent sign-in required.",
+      error: "Accounts are not set up on this site.",
     });
   });
 
-  it("fails when the body says so even on a 200", async () => {
-    // `success: false` is authoritative regardless of the status code.
-    fetchMock.mockResolvedValue(jsonResponse({ success: false }));
+  it("fails without a URL even on a 200", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ success: true }));
 
-    const result = await sendTokenToServer("token");
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Server authentication failed.");
-  });
-
-  it("falls back to a generic message when the request itself throws", async () => {
-    fetchMock.mockRejectedValue(new Error(""));
-
-    await expect(sendTokenToServer("token")).resolves.toEqual({
+    await expect(startSignIn("/")).resolves.toEqual({
       success: false,
-      error: "An error occurred during server authentication.",
+      error: "Sign-in could not be started.",
     });
   });
 
   it("keeps a thrown error's own message when it has one", async () => {
     fetchMock.mockRejectedValue(new Error("Failed to fetch"));
 
-    await expect(sendTokenToServer("token")).resolves.toEqual({
+    await expect(startSignIn("/")).resolves.toEqual({
       success: false,
       error: "Failed to fetch",
     });
@@ -115,46 +119,42 @@ describe("deleteSession", () => {
 });
 
 describe("deleteUserAccount", () => {
-  it("sends DELETE with the re-authentication token", async () => {
+  it("sends DELETE to the user route", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ success: true }));
 
-    await expect(deleteUserAccount("fresh-token")).resolves.toEqual({
-      success: true,
-    });
+    await expect(deleteUserAccount()).resolves.toEqual({ success: true });
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/user", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: "fresh-token" }),
     });
   });
 
   it("surfaces a re-authentication demand", async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: false, error: "Re-authentication is required." }, false)
-    );
-
-    await expect(deleteUserAccount("stale")).resolves.toEqual({
-      success: false,
-      error: "Re-authentication is required.",
-    });
-  });
-
-  it("reports the account as gone when only its cleanup failed", async () => {
-    fetchMock.mockResolvedValue(
       jsonResponse(
         {
           success: false,
-          accountDeleted: true,
-          error: "Account deleted, but some of its notes could not be removed.",
+          reauthRequired: true,
+          error: "Re-authentication is required.",
         },
         false
       )
     );
 
-    await expect(deleteUserAccount("fresh")).resolves.toEqual({
+    await expect(deleteUserAccount()).resolves.toEqual({
       success: false,
-      accountDeleted: true,
-      error: "Account deleted, but some of its notes could not be removed.",
+      reauthRequired: true,
+      error: "Re-authentication is required.",
+    });
+  });
+
+  it("reports a refusal without flags", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: false, error: "Failed to delete account." }, false)
+    );
+
+    await expect(deleteUserAccount()).resolves.toEqual({
+      success: false,
+      error: "Failed to delete account.",
     });
   });
 
@@ -163,7 +163,7 @@ describe("deleteUserAccount", () => {
     // refusal.
     fetchMock.mockRejectedValue(new Error(""));
 
-    await expect(deleteUserAccount("token")).resolves.toEqual({
+    await expect(deleteUserAccount()).resolves.toEqual({
       success: false,
       outcomeUnknown: true,
       error: "An error occurred while deleting account.",

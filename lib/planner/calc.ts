@@ -11,7 +11,7 @@ import {
   TRELLIS,
 } from "../data/products";
 import { VEGETABLES, type Vegetable } from "../data/vegetables";
-import { getProduct, lineTotal, seedlingFor } from "../products";
+import type { Catalog } from "../products";
 
 export type VegInput = {
   selected: boolean;
@@ -104,7 +104,9 @@ export function containerFor(spacePerPlant: number): string {
   return CONTAINER_SMALL;
 }
 
-export function computePlan(inputs: PlannerInputs): PlanResult {
+/** Priced from `catalog`, so the server and the browser compute the same plan */
+export function computePlan(inputs: PlannerInputs, catalog: Catalog): PlanResult {
+  const { getProduct, lineTotal, seedlingFor } = catalog;
   const people = Math.floor(toAmount(inputs.people));
   let remaining = toAmount(inputs.space);
 
@@ -157,7 +159,7 @@ export function computePlan(inputs: PlannerInputs): PlanResult {
 
   const planted = rows.filter((row) => row.plants > 0);
 
-  const shopping = buildShoppingList(planted);
+  const shopping = buildShoppingList(planted, catalog);
   const shoppingTotal = shopping.reduce(
     (sum, line) => sum + lineTotal(line.productId, line.qty),
     0
@@ -211,7 +213,7 @@ export function computePlan(inputs: PlannerInputs): PlanResult {
 }
 
 /** FR-P-15, BR-15, BR-16: empty when nothing could be planted */
-function buildShoppingList(planted: PlanRow[]): ShoppingLine[] {
+function buildShoppingList(planted: PlanRow[], catalog: Catalog): ShoppingLine[] {
   if (planted.length === 0) {
     return [];
   }
@@ -224,7 +226,7 @@ function buildShoppingList(planted: PlanRow[]): ShoppingLine[] {
   };
 
   for (const row of planted) {
-    const seedling = seedlingFor(row.veg.id);
+    const seedling = catalog.seedlingFor(row.veg.id);
     if (seedling) add(seedling.id, row.plants);
   }
   for (const row of planted) {

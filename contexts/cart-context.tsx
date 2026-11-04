@@ -10,7 +10,8 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import { mergeCarts, sanitizeCart, type Cart } from "@/lib/products";
+import { useCatalog } from "@/contexts/catalog-context";
+import { mergeCarts, sanitizeQuantities, type Cart } from "@/lib/products";
 
 export const CART_STORAGE_KEY = "hvs_cart";
 const SYNC_DELAY_MS = 600;
@@ -21,6 +22,10 @@ const EMPTY_CART: Cart = {};
  * `useSyncExternalStore`: the server render and the first client render both
  * see an empty cart, and the stored one appears right after hydration without
  * a mismatch. Other tabs' changes arrive through the `storage` event.
+ *
+ * The store keeps any product ID; the provider shows only those on sale. A
+ * product the shop hides drops out of the cart, and comes back if it is
+ * shown again.
  */
 const deviceCart = (() => {
   // The parsed cart is cached against the raw stored string, so snapshots
@@ -46,7 +51,7 @@ const deviceCart = (() => {
       if (raw !== lastRaw) {
         lastRaw = raw;
         try {
-          memory = sanitizeCart(JSON.parse(raw ?? "{}"));
+          memory = sanitizeQuantities(JSON.parse(raw ?? "{}"));
         } catch {
           memory = {};
         }
@@ -85,6 +90,8 @@ type CartContextType = {
   addMany: (lines: { productId: string; qty: number }[]) => void;
   setQty: (productId: string, qty: number) => void;
   remove: (productId: string) => void;
+  /** After an order is placed; the sync then empties the cloud cart too */
+  clear: () => void;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -101,7 +108,7 @@ async function sendCart(url: string, method: "POST" | "PUT", cart: Cart) {
     throw new Error(data.error || "Cart sync failed.");
   }
 
-  return sanitizeCart(data.cart);
+  return sanitizeQuantities(data.cart);
 }
 
 /**
@@ -117,11 +124,13 @@ export const CartProvider = ({
   children: ReactNode;
   uid: string | null;
 }) => {
-  const cart = useSyncExternalStore(
+  const { sanitizeCart } = useCatalog();
+  const stored = useSyncExternalStore(
     deviceCart.subscribe,
     deviceCart.get,
     () => EMPTY_CART
   );
+  const cart = useMemo(() => sanitizeCart(stored), [stored, sanitizeCart]);
 
   // The uid whose cloud cart has been merged in. Changes are pushed only
   // after that, so a device cart can never overwrite the cloud one unmerged.
@@ -198,6 +207,8 @@ export const CartProvider = ({
     [setQty]
   );
 
+  const clear = useCallback(() => deviceCart.set({}), []);
+
   const value = useMemo(
     () => ({
       cart,
@@ -206,8 +217,9 @@ export const CartProvider = ({
       addMany,
       setQty,
       remove,
+      clear,
     }),
-    [cart, add, addMany, setQty, remove]
+    [cart, add, addMany, setQty, remove, clear]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

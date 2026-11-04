@@ -11,9 +11,17 @@ import type { Localized } from "../i18n/types";
 // `icon` is the step's picture, shown large so the step reads at a glance
 export type GuideStep = { icon: string; title: Localized; text: Localized };
 
+/**
+ * `general` guides are the ones admins add from the console; the others are
+ * built in, and the shop, planner and courses link to them.
+ */
+export const GUIDE_KINDS = ["package", "soil", "vegetable", "general"] as const;
+
+export type GuideKind = (typeof GUIDE_KINDS)[number];
+
 export type Guide = {
   id: string;
-  kind: "package" | "soil" | "vegetable";
+  kind: GuideKind;
   icon: string;
   name: Localized;
   /** Package and soil only; vegetable guides show days to first harvest */

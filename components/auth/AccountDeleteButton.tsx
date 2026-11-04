@@ -5,12 +5,21 @@ import Loading from "../icons/Loading";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 
-export default function AccountDeleteButton() {
+type AccountDeleteButtonProps = {
+  /** The user just re-authenticated for this, so one more click deletes */
+  confirmDelete?: boolean;
+};
+
+export default function AccountDeleteButton({
+  confirmDelete = false,
+}: AccountDeleteButtonProps) {
   const { loadingProvider, isAuthLoading, deleteAccount } = useAuth();
   const { t } = useLanguage();
 
   const handleDeleteAccount = async () => {
-    // Deleting is irreversible and nothing on the server can undo it.
+    // Deleting is irreversible and nothing on the server can undo it. When the
+    // server still wants a fresh sign-in, `deleteAccount` sends the user to
+    // Google and they come back here with `confirmDelete` set.
     if (
       !window.confirm(t("account.deleteConfirm"))
     ) {
@@ -33,7 +42,7 @@ export default function AccountDeleteButton() {
       ) : (
         <TrashIcon className="h-4.5 w-4.5" aria-hidden="true" />
       )}
-      <span>{t("account.delete")}</span>
+      <span>{t(confirmDelete ? "account.deleteFinish" : "account.delete")}</span>
     </button>
   );
 }

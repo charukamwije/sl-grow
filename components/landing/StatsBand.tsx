@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
 import { VEGETABLES } from "@/lib/data/vegetables";
-import { formatNumber, seedlingFor } from "@/lib/products";
+import { formatNumber, type Catalog } from "@/lib/products";
 import CountUp from "./CountUp";
 import Reveal from "./Reveal";
 
@@ -12,7 +13,8 @@ import Reveal from "./Reveal";
 const WHO_GRAMS_PER_DAY = 400;
 const WHO_PORTION_G = 80;
 
-const icon = (vegId: string) => seedlingFor(vegId)?.icon ?? "🌱";
+const vegIcon = (catalog: Catalog, vegId: string) =>
+  catalog.seedlingFor(vegId)?.icon ?? "🌱";
 const yieldPerYear = (veg: (typeof VEGETABLES)[number]) => veg.yieldPerCycle * veg.cyclesPerYear;
 
 // Derived from the planner's own data, so these can never disagree with it
@@ -35,6 +37,8 @@ type Stat = {
 
 /** The 11 vegetables, popping in one after another */
 function VegetableRow() {
+  const catalog = useCatalog();
+
   return (
     <div className="flex flex-wrap gap-1.5">
       {VEGETABLES.map((veg, i) => (
@@ -43,7 +47,7 @@ function VegetableRow() {
           className="flex h-9 w-9 animate-fade-up items-center justify-center rounded-xl bg-white/10 text-lg ring-1 ring-white/10"
           style={{ animationDelay: `${i * 60}ms` }}
         >
-          {icon(veg.id)}
+          {vegIcon(catalog, veg.id)}
         </span>
       ))}
     </div>
@@ -113,6 +117,8 @@ function Portions() {
  */
 export default function StatsBand() {
   const { t, l } = useLanguage();
+  const catalog = useCatalog();
+  const icon = (vegId: string) => vegIcon(catalog, vegId);
 
   const stats: Stat[] = [
     {

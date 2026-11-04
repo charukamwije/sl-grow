@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
+import { getCatalog } from "@/lib/catalog-server";
 import { VEGETABLES } from "@/lib/data/vegetables";
-import { resolveUid } from "@/lib/firebase/route-auth";
-import { userPlans } from "@/lib/firebase/store";
+import { resolveUid } from "@/lib/supabase/route-auth";
+import { insertPlan } from "@/lib/supabase/store";
 import {
   computePlan,
   toAmount,
@@ -66,10 +66,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const plan = computePlan(inputs);
-
   try {
-    const ref = await userPlans(uid).add({
+    const plan = computePlan(inputs, await getCatalog());
+    const id = await insertPlan(uid, {
       people: inputs.people,
       space: inputs.space,
       vegetables: inputs.veg,
@@ -78,11 +77,10 @@ export async function POST(request: NextRequest) {
       ),
       shopping: plan.shopping,
       total: plan.shoppingTotal,
-      yearlySavings: plan.savings.yearly,
-      createdAt: FieldValue.serverTimestamp(),
+      yearly_savings: plan.savings.yearly,
     });
 
-    return NextResponse.json({ success: true, id: ref.id });
+    return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error("Plan save error:", error);
 

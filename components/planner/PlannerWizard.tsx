@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from "@heroicons/react/20/solid";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
 import { VEGETABLES } from "@/lib/data/vegetables";
@@ -11,7 +12,6 @@ import {
   toAmount,
   type PlannerInputs,
 } from "@/lib/planner/calc";
-import { seedlingFor } from "@/lib/products";
 import NumberStepper from "../ui/NumberStepper";
 import StepIndicator from "../ui/StepIndicator";
 import {
@@ -77,7 +77,6 @@ function toInputs(form: FormState): PlannerInputs {
   };
 }
 
-const vegIcon = (id: string) => seedlingFor(id)?.icon ?? "🌱";
 
 /**
  * The planner, one step at a time (SRS 3.1): home, vegetables, amounts and
@@ -87,13 +86,15 @@ const vegIcon = (id: string) => seedlingFor(id)?.icon ?? "🌱";
 export default function PlannerWizard() {
   const { t, l } = useLanguage();
   const { addErrorNotification } = useNotification();
+  const catalog = useCatalog();
+  const vegIcon = (id: string) => catalog.seedlingFor(id)?.icon ?? "🌱";
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initialForm);
 
   const inputs = useMemo(() => toInputs(form), [form]);
   const plan = useMemo(
-    () => (step === 3 ? computePlan(inputs) : null),
-    [step, inputs]
+    () => (step === 3 ? computePlan(inputs, catalog) : null),
+    [step, inputs, catalog]
   );
   const selected = VEGETABLES.filter((veg) => form.veg[veg.id].selected);
 

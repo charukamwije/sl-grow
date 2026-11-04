@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AccountDeleteButton from "@/components/auth/AccountDeleteButton";
 import AuthButtons from "@/components/auth/AuthButtons";
 import AuthModal from "@/components/modals/AuthModal";
-import type { AuthOperation } from "@/lib/firebase/useFirebaseAuth";
+import type { AuthOperation } from "@/lib/supabase/useSupabaseAuth";
 import { renderWithLanguage as render } from "./render";
 import "./setup";
 
@@ -31,6 +31,7 @@ const signedInUser = {
   email: "user@example.com",
   displayName: "Example User",
   photoURL: null,
+  role: "member" as const,
 };
 
 const modalTitle = () => screen.queryByRole("heading", { name: "Sign in" });
@@ -106,6 +107,14 @@ describe("AccountDeleteButton", () => {
 
     expect(confirm.mock.calls[0][0]).toMatch(/cannot be undone/i);
     expect(confirm.mock.calls[0][0]).toMatch(/orders and plans/i);
+  });
+
+  it("asks to finish once the user is back from re-authenticating", () => {
+    render(<AccountDeleteButton confirmDelete />);
+
+    expect(
+      screen.getByRole("button", { name: "Finish deleting account" })
+    ).toBeInTheDocument();
   });
 
   it("is disabled while another operation is running", () => {

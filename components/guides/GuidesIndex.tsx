@@ -1,10 +1,11 @@
 "use client";
 
 import { useLanguage } from "@/contexts/language-context";
+import type { GuideSummary } from "@/lib/guides";
 import { heading, muted } from "../ui/styles";
 import GuideList from "./GuideList";
 
-export default function GuidesIndex() {
+export default function GuidesIndex({ guides }: { guides: GuideSummary[] }) {
   const { t } = useLanguage();
 
   return (
@@ -13,7 +14,7 @@ export default function GuidesIndex() {
         <h1 className={heading}>{t("guides.title")}</h1>
         <p className={muted}>{t("guides.intro")}</p>
       </div>
-      <GuideList />
+      <GuideList guides={guides} />
     </div>
   );
 }

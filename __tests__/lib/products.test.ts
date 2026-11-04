@@ -5,14 +5,15 @@ import { CATEGORIES, PRODUCTS, SHARED_SUPPLIES } from "@/lib/data/products";
 import { VEGETABLES } from "@/lib/data/vegetables";
 import { STRINGS } from "@/lib/i18n/strings";
 import {
-  cartTotal,
-  getProduct,
-  lineTotal,
+  createCatalog,
   mergeCarts,
   productCode,
-  sanitizeCart,
-  seedlingFor,
+  sanitizeQuantities,
+  STATIC_CATALOG,
 } from "@/lib/products";
+import { isProtectedProduct, PROTECTED_PRODUCT_IDS } from "@/lib/protected-products";
+
+const { cartTotal, getProduct, lineTotal, sanitizeCart, seedlingFor } = STATIC_CATALOG;
 
 describe("productCode (BR-19, Appendix A)", () => {
   it.each([
@@ -52,6 +53,54 @@ describe("sanitizeCart", () => {
 
   it.each([null, undefined, "x", 3, ["s_tomato"]])("returns {} for %p", (value) => {
     expect(sanitizeCart(value)).toEqual({});
+  });
+});
+
+describe("createCatalog", () => {
+  const tomato = PRODUCTS.find((p) => p.id === "s_tomato")!;
+  const catalog = createCatalog([{ ...tomato, price: 95 }]);
+
+  it("prices from the products it was given, not the code", () => {
+    expect(catalog.lineTotal("s_tomato", 2)).toBe(190);
+    expect(catalog.cartTotal({ s_tomato: 1, f_compost: 1 })).toBe(95);
+  });
+
+  it("drops products it does not have from a cart, as it does hidden ones", () => {
+    expect(catalog.sanitizeCart({ s_tomato: 1, f_compost: 2 })).toEqual({ s_tomato: 1 });
+    expect(catalog.getProduct("f_compost")).toBeUndefined();
+  });
+
+  it("finds the seedling for a vegetable among its own products", () => {
+    expect(catalog.seedlingFor("tomato")?.price).toBe(95);
+    expect(catalog.seedlingFor("chili")).toBeUndefined();
+  });
+});
+
+describe("sanitizeQuantities", () => {
+  it("checks quantities for any product ID when not told which to keep", () => {
+    expect(sanitizeQuantities({ anything: 2, other: 0, s_tomato: 1.5 })).toEqual({
+      anything: 2,
+    });
+  });
+});
+
+describe("protected products", () => {
+  it.each(["k_gb15", "k_pot12", "k_pot8", "p_trellis", "f_compost", "s_tomato", "c_fruitfly"])(
+    "protects %s, which the planner or a guide needs",
+    (id) => {
+      expect(isProtectedProduct(id)).toBe(true);
+    }
+  );
+
+  it("leaves products nothing depends on editable", () => {
+    expect(isProtectedProduct("t_fork")).toBe(false);
+    expect(isProtectedProduct("k_tray")).toBe(false);
+  });
+
+  it("only protects products that exist", () => {
+    for (const id of PROTECTED_PRODUCT_IDS) {
+      expect(getProduct(id), id).toBeDefined();
+    }
   });
 });
 

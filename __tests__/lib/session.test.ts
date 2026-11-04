@@ -1,16 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  SESSION_COOKIE_NAME,
+  SESSION_COOKIE_OPTIONS,
   SESSION_EXPIRES_IN,
   isRecent,
-} from "@/lib/firebase/session";
+  safeNextPath,
+  withSessionLifetime,
+} from "@/lib/supabase/session";
 
 const NOW = new Date("2026-01-01T00:00:00Z");
 const nowSeconds = NOW.getTime() / 1000;
 
 describe("session constants", () => {
-  it("names the session cookie", () => {
-    expect(SESSION_COOKIE_NAME).toBe("firebase-session");
+  it("keeps the session cookies away from page scripts", () => {
+    expect(SESSION_COOKIE_OPTIONS).toMatchObject({ httpOnly: true, sameSite: "lax" });
+  });
+
+  it("caps a stored cookie at the session's lifetime, in seconds", () => {
+    // @supabase/ssr asks for 400 days
+    expect(withSessionLifetime({ httpOnly: true, maxAge: 400 * 24 * 60 * 60 })).toEqual({
+      httpOnly: true,
+      maxAge: 14 * 24 * 60 * 60,
+    });
+  });
+
+  it("leaves a cookie removal alone", () => {
+    expect(withSessionLifetime({ maxAge: 0 })).toEqual({ maxAge: 0 });
   });
 
   it("expires sessions after two weeks, in milliseconds", () => {
@@ -49,7 +63,28 @@ describe("isRecent", () => {
   });
 
   it("accepts a timestamp in the future", () => {
-    // Clock skew between Firebase and this server must not lock a user out.
+    // Clock skew between Supabase and this server must not lock a user out.
     expect(isRecent(nowSeconds + 60)).toBe(true);
+  });
+});
+
+describe("safeNextPath", () => {
+  it.each(["/", "/shop", "/account?confirmDelete=1", "/guides/1#top"])(
+    "keeps the path %s on this site",
+    (path) => {
+      expect(safeNextPath(path)).toBe(path);
+    }
+  );
+
+  it.each([
+    "https://attacker.example",
+    "//attacker.example",
+    "/\\attacker.example",
+    "shop",
+    "",
+    null,
+    42,
+  ])("falls back to the home page for %s", (value) => {
+    expect(safeNextPath(value)).toBe("/");
   });
 });

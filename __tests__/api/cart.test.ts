@@ -1,16 +1,23 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME } from "@/lib/firebase/session";
 import { cookieJar } from "../helpers/cookie-jar";
-import { firestoreDouble } from "../helpers/firestore-double";
+import { stubSupabaseEnv, supabaseDouble } from "../helpers/supabase-double";
 
-const adminAuth = vi.hoisted(() => ({
-  verifySessionCookie: vi.fn(),
-}));
-
-vi.mock("@/lib/firebase/admin", async () => {
-  const { firestoreDouble } = await import("../helpers/firestore-double");
-  return { adminAuth, adminDb: firestoreDouble.adminDb };
+vi.mock("@/lib/catalog-server", async () => {
+  const { STATIC_CATALOG } = await import("@/lib/products");
+  return { getCatalog: async () => STATIC_CATALOG };
+});
+vi.mock("@/lib/supabase/admin", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { adminDb: supabaseDouble.admin };
+});
+vi.mock("@/lib/supabase/server", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { createClient: async () => supabaseDouble.client };
+});
+vi.mock("@/lib/supabase/store", async (importOriginal) => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { ...(await importOriginal<object>()), ...supabaseDouble.store };
 });
 vi.mock("next/headers", async () => {
   const { cookieJar } = await import("../helpers/cookie-jar");
@@ -40,21 +47,18 @@ function cartRequest(
 }
 
 function givenSession(uid: string) {
-  cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "session-cookie" });
-  adminAuth.verifySessionCookie.mockResolvedValue({
-    uid,
-    firebase: { sign_in_provider: "google.com" },
-  });
+  supabaseDouble.givenUser(uid);
 }
 
 function givenCloudCart(uid: string, items: Record<string, number>) {
-  firestoreDouble.docs.set(`users/${uid}/meta/cart`, { items });
+  supabaseDouble.carts.set(uid, items);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   cookieJar.reset();
-  firestoreDouble.reset();
+  supabaseDouble.reset();
+  stubSupabaseEnv();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -103,14 +107,14 @@ describe("PUT /api/cart", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(firestoreDouble.set).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.saveCart).not.toHaveBeenCalled();
   });
 
   it("answers 401 when signed out", async () => {
     const response = await PUT(cartRequest("/api/cart", "PUT", { cart: {} }));
 
     expect(response.status).toBe(401);
-    expect(firestoreDouble.set).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.saveCart).not.toHaveBeenCalled();
   });
 
   it("saves the sanitized cart under the session's uid, ignoring any uid in the body", async () => {
@@ -124,9 +128,9 @@ describe("PUT /api/cart", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(firestoreDouble.set).toHaveBeenCalledWith(
-      "users/user-1/meta/cart",
-      expect.objectContaining({ items: { s_tomato: 3 } })
+    expect(supabaseDouble.store.saveCart).toHaveBeenCalledWith(
+      "user-1",
+      { s_tomato: 3 }
     );
   });
 
@@ -136,7 +140,7 @@ describe("PUT /api/cart", () => {
     const response = await PUT(cartRequest("/api/cart", "PUT", { items: [] }));
 
     expect(response.status).toBe(400);
-    expect(firestoreDouble.set).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.saveCart).not.toHaveBeenCalled();
   });
 });
 
@@ -153,9 +157,12 @@ describe("POST /api/cart/merge", () => {
 
     const merged = { s_tomato: 5, k_gb15: 4, t_ph: 1 };
     await expect(response.json()).resolves.toEqual({ success: true, cart: merged });
-    expect(firestoreDouble.docs.get("users/user-1/meta/cart")).toEqual(
-      expect.objectContaining({ items: merged })
-    );
+    expect(supabaseDouble.store.mergeCart).toHaveBeenCalledWith("user-1", {
+      s_tomato: 5,
+      k_gb15: 1,
+      t_ph: 1,
+    });
+    expect(supabaseDouble.carts.get("user-1")).toEqual(merged);
   });
 
   it("starts from the device cart when there is no cloud cart yet", async () => {

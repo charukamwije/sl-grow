@@ -1,17 +1,20 @@
 "use client";
 
 import { createContext, ReactNode, useContext } from "react";
+import type { Role } from "@/lib/supabase/roles";
 
 export type SessionUser = {
   uid: string;
   displayName: string | null;
   email: string | null;
+  /** For showing or hiding admin links only; the server checks every action */
+  role: Role;
 };
 
 type SessionContextType = {
   /** The signed-in customer as the server verified them, or null */
   user: SessionUser | null;
-  /** False when Firebase is not configured and the app runs as guest only */
+  /** False when Supabase is not configured and the app runs as guest only */
   accountsEnabled: boolean;
 };
 

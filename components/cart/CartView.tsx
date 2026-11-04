@@ -2,16 +2,10 @@
 
 import Link from "next/link";
 import { BookOpenIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
-import {
-  cartTotal,
-  formatLKR,
-  getProduct,
-  lineTotal,
-  productCode,
-} from "@/lib/products";
-import { isPlaceholderNumber } from "@/lib/shop-config";
+import { formatLKR, productCode } from "@/lib/products";
 import QtyControl from "../ui/QtyControl";
 import { btnPrimary, btnSecondary, card, heading } from "../ui/styles";
 import CheckoutForm from "./CheckoutForm";
@@ -19,6 +13,7 @@ import CheckoutForm from "./CheckoutForm";
 export default function CartView() {
   const { t, l } = useLanguage();
   const { cart, count, setQty, remove } = useCart();
+  const { getProduct, lineTotal, cartTotal } = useCatalog();
   const entries = Object.entries(cart).filter(([id]) => getProduct(id));
 
   return (
@@ -30,14 +25,6 @@ export default function CartView() {
         )}
       </div>
 
-      {isPlaceholderNumber() && (
-        <p
-          role="alert"
-          className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200"
-        >
-          ⚠️ {t("ownerWarning")}
-        </p>
-      )}
 
       {entries.length === 0 ? (
         <div className={`${card} flex flex-col items-center gap-4 py-12 text-center`}>

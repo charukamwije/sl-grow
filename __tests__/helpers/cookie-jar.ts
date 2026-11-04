@@ -1,6 +1,6 @@
 /**
  * A stand-in for the Next.js cookie store, shared by the route tests: the
- * handlers read, set and delete the session cookie through `cookies()`, and
+ * handlers read, set and delete the session cookies through `cookies()`, and
  * asserting on what they left behind is most of what those tests check.
  */
 export type CookieRecord = {
@@ -20,6 +20,9 @@ function createCookieJar() {
     store: {
       get(name: string): CookieRecord | undefined {
         return records.get(name);
+      },
+      getAll(): CookieRecord[] {
+        return [...records.values()];
       },
       set(record: CookieRecord) {
         records.set(record.name, record);

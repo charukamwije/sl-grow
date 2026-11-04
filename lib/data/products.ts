@@ -20,7 +20,9 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 // Translated in lib/i18n/strings.ts under `unit.*`
-export type Unit = "each" | "packet" | "bag" | "kg" | "bottle" | "pack" | "block";
+export const UNITS = ["each", "packet", "bag", "kg", "bottle", "pack", "block"] as const;
+
+export type Unit = (typeof UNITS)[number];
 
 export type Product = {
   id: string;
@@ -30,6 +32,8 @@ export type Product = {
   icon: string;
   price: number;
   vegId?: string;
+  /** Public URL of an uploaded photo; the shop shows `icon` without one */
+  image?: string;
 };
 
 export const PRODUCTS: Product[] = [

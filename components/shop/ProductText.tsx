@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment } from "react";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
-import { getProduct, productCode } from "@/lib/products";
+import { productCode } from "@/lib/products";
 
 /**
  * Renders guide text, turning each `[[product_id]]` into the product's name
@@ -11,6 +12,7 @@ import { getProduct, productCode } from "@/lib/products";
  */
 export default function ProductText({ text }: { text: string }) {
   const { l } = useLanguage();
+  const { getProduct } = useCatalog();
   const parts = text.split(/\[\[(\w+)\]\]/);
 
   return (

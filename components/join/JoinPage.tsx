@@ -1,28 +1,33 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircleIcon, LockClosedIcon } from "@heroicons/react/20/solid";
+import { CheckCircleIcon } from "@heroicons/react/20/solid";
 import { ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
+import { useSession } from "@/contexts/session-context";
+import { OPEN_STATUSES } from "@/lib/certification/status";
+import type { OwnApplication } from "@/lib/certifications-server";
 import { CERT_TRACKS, getTrack, lessonCount, type CertTrack } from "@/lib/data/certifications";
 import { completedModules, firstOpenModule, isCourseComplete } from "@/lib/course-progress";
-import {
-  deviceApplications,
-  deviceLearning,
-  useDeviceHistory,
-} from "@/lib/device-history";
-import { generateApplicationRef } from "@/lib/order/reference";
-import {
-  buildApplicationMessage,
-  waLink,
-  type ApplicationDetails,
-} from "@/lib/order/whatsapp";
+import { deviceLearning, useDeviceHistory } from "@/lib/device-history";
+import GoogleIcon from "../icons/GoogleIcon";
+import Loading from "../icons/Loading";
 import Reveal from "../landing/Reveal";
 import TextField from "../ui/TextField";
 import { btnPrimary, card, eyebrow, heading, subheading } from "../ui/styles";
+import ApplicationList, { ApplicationItem } from "./ApplicationList";
 import DigitalBadge from "./DigitalBadge";
+
+type ApplicationDetails = {
+  name: string;
+  phone: string;
+  location: string;
+  notes: string;
+};
 
 const sectionTitle = "text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl";
 
@@ -101,40 +106,97 @@ function CourseOverview({ track }: { track: CertTrack }) {
 }
 
 /** Apply: the practical requirements and the application, once Learn is done */
+/** Guests see this in place of the form: applications live in an account */
+function SignInToApply() {
+  const { t } = useLanguage();
+  const { accountsEnabled } = useSession();
+  const { signInWithGoogle, loadingProvider, isAuthLoading } = useAuth();
+
+  if (!accountsEnabled) {
+    return <p className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">{t("join.unavailable")}</p>;
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl bg-gray-50 p-4">
+      <p className="font-semibold text-gray-900">{t("join.signInTitle")}</p>
+      <p className="text-sm leading-relaxed text-gray-600">{t("join.signInText")}</p>
+      <button
+        type="button"
+        onClick={() => void signInWithGoogle()}
+        disabled={isAuthLoading}
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-800 shadow-sm transition hover:shadow-md disabled:opacity-60"
+      >
+        {loadingProvider === "google" ? <Loading size="small" color="black" /> : <GoogleIcon />}
+        {t("signInGoogle")}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Apply (FR-J-04): signed-in users send their application to the team, who
+ * move it through its status. One open application per path at a time.
+ */
 function Apply({
   track,
-  unlocked,
   details,
   setDetails,
+  applications,
 }: {
   track: CertTrack;
-  unlocked: boolean;
   details: ApplicationDetails;
   setDetails: (update: (prev: ApplicationDetails) => ApplicationDetails) => void;
+  applications: OwnApplication[];
 }) {
   const { t, l } = useLanguage();
-  const { addErrorNotification, addInfoNotification } = useNotification();
+  const router = useRouter();
+  const { user } = useSession();
+  const { addErrorNotification } = useNotification();
   const [sentRef, setSentRef] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const open = applications.find(
+    (application) => application.track === track.id && OPEN_STATUSES.includes(application.status)
+  );
 
   const update = (field: keyof ApplicationDetails) => (value: string) =>
     setDetails((prev) => ({ ...prev, [field]: value }));
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (sending) return;
     if (!details.name.trim() || !details.phone.trim() || !details.location.trim()) {
       addErrorNotification(t("join.needDetails"));
       return;
     }
 
-    const ref = generateApplicationRef();
-    const score = `${track.modules.length}/${track.modules.length} modules`;
-    // Opened inside the click so mobile popup blockers allow it
-    window.open(waLink(buildApplicationMessage(track.name.en, details, ref, score)), "_blank", "noopener");
-    deviceApplications.add({ ref, track: track.id, createdAt: new Date().toISOString() });
-    addInfoNotification(t("orderOpened"));
-    setSentRef(ref);
-    setCopied(false);
+    setSending(true);
+    try {
+      const response = await fetch("/api/certifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track: track.id, ...details }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (response.status === 409) {
+        addErrorNotification(t(data?.error === "certified" ? "join.alreadyCertified" : "join.alreadyOpen"));
+        router.refresh();
+        return;
+      }
+      if (!response.ok || !data?.success) throw new Error(data?.error || "Application failed");
+
+      setSentRef(data.ref);
+      setCopied(false);
+      // Brings the new application into the lists from the server
+      router.refresh();
+    } catch (error) {
+      console.error("Application error:", error);
+      addErrorNotification(t("join.sendFailed"));
+    } finally {
+      setSending(false);
+    }
   };
 
   const copy = async () => {
@@ -161,45 +223,51 @@ function Apply({
         </ul>
       </div>
 
-      {!unlocked ? (
-        <p className="flex items-center gap-2 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">
-          <LockClosedIcon className="h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
-          {t("join.applyLocked")}
-        </p>
+      {sentRef && (
+        <div role="status" className="animate-fade-up rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+            <CheckCircleIcon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+            {t("join.sentTitle")}
+          </p>
+          <p className="mt-3 text-xs font-medium text-emerald-800">{t("join.refLabel")}</p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="font-mono text-2xl font-bold tracking-wider text-gray-900">{sentRef}</span>
+            <button
+              type="button"
+              onClick={copy}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+            >
+              <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
+              {copied ? t("copied") : t("copy")}
+            </button>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-emerald-800">{t("join.refHint")}</p>
+        </div>
+      )}
+
+      {!user ? (
+        <SignInToApply />
+      ) : open ? (
+        !sentRef && (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-700">{t("join.alreadyOpen")}</p>
+            <ul>
+              <ApplicationItem application={open} />
+            </ul>
+          </div>
+        )
       ) : (
         <form onSubmit={submit} className="space-y-3" noValidate>
-          {sentRef && (
-            <div role="status" className="animate-fade-up rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
-              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                <CheckCircleIcon className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-                {t("join.sentTitle")}
-              </p>
-              <p className="mt-3 text-xs font-medium text-emerald-800">{t("join.refLabel")}</p>
-              <div className="mt-1 flex items-center justify-between gap-3">
-                <span className="font-mono text-2xl font-bold tracking-wider text-gray-900">{sentRef}</span>
-                <button
-                  type="button"
-                  onClick={copy}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
-                >
-                  <ClipboardDocumentIcon className="h-4 w-4" aria-hidden="true" />
-                  {copied ? t("copied") : t("copy")}
-                </button>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-emerald-800">{t("join.refHint")}</p>
-            </div>
-          )}
-          <TextField id={`${track.id}-name`} label={t("checkout.name")} value={details.name} onChange={update("name")} autoComplete="name" maxLength={200} required />
-          <TextField id={`${track.id}-phone`} type="tel" label={t("checkout.phone")} value={details.phone} onChange={update("phone")} autoComplete="tel" maxLength={200} required />
-          <TextField id={`${track.id}-location`} label={t("join.location")} value={details.location} onChange={update("location")} autoComplete="address-level2" maxLength={200} required />
+          <p className="text-xs text-gray-500">{t("join.recommendCourse")}</p>
+          <TextField id={`${track.id}-name`} label={t("checkout.name")} value={details.name} onChange={update("name")} autoComplete="name" maxLength={120} required />
+          <TextField id={`${track.id}-phone`} type="tel" label={t("checkout.phone")} value={details.phone} onChange={update("phone")} autoComplete="tel" maxLength={40} required />
+          <TextField id={`${track.id}-location`} label={t("join.location")} value={details.location} onChange={update("location")} autoComplete="address-level2" maxLength={120} required />
           <TextField id={`${track.id}-notes`} label={t("join.aboutMe")} value={details.notes} onChange={update("notes")} maxLength={1000} multiline rows={3} />
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1ebe5a] active:scale-[0.98]"
-          >
-            💬 {t("join.send")}
+          <button type="submit" className={`${btnPrimary} w-full py-3.5`} disabled={sending}>
+            {sending && <Loading size="small" color="white" />}
+            {sending ? t("join.sending") : t("join.submit")}
           </button>
-          <p className="text-xs text-gray-500">{t("checkout.privacy")}</p>
+          <p className="text-xs text-gray-500">{t("join.privacy")}</p>
         </form>
       )}
     </div>
@@ -207,12 +275,13 @@ function Apply({
 }
 
 /** One path from start to badge: Learn, Apply, Get certified */
-function Journey({ track }: { track: CertTrack }) {
+function Journey({ track, applications }: { track: CertTrack; applications: OwnApplication[] }) {
   const { t, l } = useLanguage();
+  const { user } = useSession();
   const learning = useDeviceHistory(deviceLearning);
   const passed = isCourseComplete(learning, track);
   const [details, setDetails] = useState<ApplicationDetails>({
-    name: "",
+    name: user?.displayName ?? "",
     phone: "",
     location: "",
     notes: "",
@@ -234,7 +303,7 @@ function Journey({ track }: { track: CertTrack }) {
             <StepNumber n={2} />
             <h3 className={`${subheading} !mb-0`}>{t("join.applyTitle")}</h3>
           </div>
-          <Apply track={track} unlocked={passed} details={details} setDetails={setDetails} />
+          <Apply track={track} details={details} setDetails={setDetails} applications={applications} />
         </div>
       </section>
 
@@ -258,10 +327,15 @@ function Journey({ track }: { track: CertTrack }) {
   );
 }
 
-export default function JoinPage({ initialPath }: { initialPath?: CertTrack["id"] }) {
+type JoinPageProps = {
+  initialPath?: CertTrack["id"];
+  /** The signed-in user's applications, newest first; empty for guests */
+  applications?: OwnApplication[];
+};
+
+export default function JoinPage({ initialPath, applications = [] }: JoinPageProps) {
   const { t, l } = useLanguage();
   const [selected, setSelected] = useState<CertTrack["id"]>(initialPath ?? "home-grower");
-  const applications = useDeviceHistory(deviceApplications);
   const track = getTrack(selected)!;
 
   const choose = (id: CertTrack["id"]) => {
@@ -381,28 +455,13 @@ export default function JoinPage({ initialPath }: { initialPath?: CertTrack["id"
           <h2 className={sectionTitle}>{l(track.name)}</h2>
         </div>
         {/* Re-keyed per path, so each starts with a fresh form and quiz */}
-        <Journey key={track.id} track={track} />
+        <Journey key={track.id} track={track} applications={applications} />
       </section>
 
       {applications.length > 0 && (
         <section className={card}>
           <h2 className={subheading}>{t("join.yourApplications")}</h2>
-          <ul className="space-y-2">
-            {applications.map((application) => {
-              const applied = getTrack(application.track);
-              return (
-                <li key={application.ref} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/5 p-3 text-sm">
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 font-mono font-bold tracking-wider text-emerald-800">
-                    {application.ref}
-                  </span>
-                  <span className="text-gray-700">{applied ? l(applied.name) : application.track}</span>
-                  <time dateTime={application.createdAt} className="text-xs text-gray-500">
-                    {application.createdAt.slice(0, 10)}
-                  </time>
-                </li>
-              );
-            })}
-          </ul>
+          <ApplicationList applications={applications} />
         </section>
       )}
 

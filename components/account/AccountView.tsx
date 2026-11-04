@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
-import type { OrderSummary, PlanSummary } from "@/lib/firebase/account";
-import type { ServerUser } from "@/lib/firebase/auth-server";
+import type { OwnApplication } from "@/lib/certifications-server";
+import type { OrderSummary, PlanSummary } from "@/lib/supabase/account";
+import type { ServerUser } from "@/lib/supabase/auth-server";
 import { formatLKR, formatNumber } from "@/lib/products";
 import AccountDeleteButton from "../auth/AccountDeleteButton";
 import AuthButtons from "../auth/AuthButtons";
+import ApplicationList from "../join/ApplicationList";
 import GuestHistory from "./GuestHistory";
+import { PaidBadge, StatusBadge } from "./OrderBadges";
 import UserIcon from "../icons/UserIcon";
 import AuthModal from "../modals/AuthModal";
 import { btnPrimary, card, heading, muted, subheading } from "../ui/styles";
@@ -21,6 +25,7 @@ export type AccountState =
       user: ServerUser;
       orders: OrderSummary[];
       plans: PlanSummary[];
+      applications: OwnApplication[];
     };
 
 // `createdAt` is an ISO string (always UTC). Slicing it instead of calling
@@ -30,7 +35,19 @@ function formatDate(createdAt: string): string {
   return `${createdAt.slice(0, 16).replace("T", " ")} UTC`;
 }
 
-export default function AccountView({ state }: { state: AccountState }) {
+type AccountViewProps = {
+  state: AccountState;
+  /** Back from Google after a failed or cancelled sign-in */
+  signInFailed?: boolean;
+  /** Back from the re-authentication that account deletion asks for */
+  confirmDelete?: boolean;
+};
+
+export default function AccountView({
+  state,
+  signInFailed = false,
+  confirmDelete = false,
+}: AccountViewProps) {
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -52,6 +69,11 @@ export default function AccountView({ state }: { state: AccountState }) {
 
         {state.kind === "signedOut" && (
           <div className={`${card} space-y-3 text-center`}>
+            {signInFailed && (
+              <p role="alert" className="text-sm text-red-700">
+                {t("account.signInFailed")}
+              </p>
+            )}
             <p className="text-gray-800">{t("account.signInPrompt")}</p>
             <button
               type="button"
@@ -101,7 +123,7 @@ export default function AccountView({ state }: { state: AccountState }) {
         </div>
         <div className="flex flex-wrap justify-center gap-2">
           <AuthButtons user={user} />
-          <AccountDeleteButton />
+          <AccountDeleteButton confirmDelete={confirmDelete} />
         </div>
       </section>
 
@@ -118,6 +140,10 @@ export default function AccountView({ state }: { state: AccountState }) {
               <ul className="space-y-3">
                 {state.orders.map((order) => (
                   <li key={order.id} className="rounded-2xl border border-black/5 p-3">
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={order.status} method={order.method} />
+                      {order.status !== "cancelled" && <PaidBadge paid={order.paid} />}
+                    </div>
                     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span className="flex flex-wrap items-center gap-2">
                         {order.ref && (
@@ -141,9 +167,29 @@ export default function AccountView({ state }: { state: AccountState }) {
                         </li>
                       ))}
                     </ul>
+                    <Link
+                      href={`/account/orders/${order.id}`}
+                      className="mt-2 inline-block text-sm font-medium text-emerald-700 hover:underline"
+                    >
+                      {t("account.viewOrder")} →
+                    </Link>
                   </li>
                 ))}
               </ul>
+            )}
+          </section>
+
+          <section className={card}>
+            <h2 className={subheading}>{t("account.certifications")}</h2>
+            {state.applications.length === 0 ? (
+              <p className={muted}>
+                {t("account.noCertifications")}{" "}
+                <Link href="/join" className="font-medium text-emerald-700 hover:underline">
+                  {t("account.applyLink")} →
+                </Link>
+              </p>
+            ) : (
+              <ApplicationList applications={state.applications} />
             )}
           </section>
 

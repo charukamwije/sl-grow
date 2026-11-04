@@ -5,10 +5,10 @@ import Link from "next/link";
 import { BookOpenIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { PlusIcon } from "@heroicons/react/20/solid";
 import { useCart } from "@/contexts/cart-context";
+import { useCatalog } from "@/contexts/catalog-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
-import { guideForVeg } from "@/lib/data/guides";
-import { CATEGORIES, PRODUCTS, type Category } from "@/lib/data/products";
+import { CATEGORIES, type Category } from "@/lib/data/products";
 import { formatLKR, productCode } from "@/lib/products";
 import QtyControl from "../ui/QtyControl";
 import { chip, heading } from "../ui/styles";
@@ -23,9 +23,15 @@ const CATEGORY_TINT: Record<Category, string> = {
   tools: "bg-slate-100",
 };
 
-export default function ShopView() {
+type ShopViewProps = {
+  /** vegetable ID → guide ID, for the "Guide" link on seedlings */
+  guideIds: Record<string, string>;
+};
+
+export default function ShopView({ guideIds }: ShopViewProps) {
   const { lang, t, l } = useLanguage();
   const { cart, add, setQty } = useCart();
+  const { products: catalogProducts } = useCatalog();
   const { addSuccessNotification } = useNotification();
   const [category, setCategory] = useState<Category | "all">("all");
   const [query, setQuery] = useState("");
@@ -33,7 +39,7 @@ export default function ShopView() {
   // FR-S-02: by category, and by name in the current language or English
   const products = useMemo(() => {
     const q = query.trim().toLocaleLowerCase();
-    return PRODUCTS.filter(
+    return catalogProducts.filter(
       (product) =>
         (category === "all" || product.category === category) &&
         (!q ||
@@ -41,7 +47,7 @@ export default function ShopView() {
           product.name.en.toLowerCase().includes(q) ||
           productCode(product.id).toLowerCase().includes(q))
     );
-  }, [category, query, lang]);
+  }, [catalogProducts, category, query, lang]);
 
   return (
     <div className="space-y-5">
@@ -87,7 +93,7 @@ export default function ShopView() {
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {products.map((product) => {
             const qty = cart[product.id] ?? 0;
-            const guide = product.vegId ? guideForVeg(product.vegId) : undefined;
+            const guideId = product.vegId ? guideIds[product.vegId] : undefined;
             const name = l(product.name);
 
             return (
@@ -96,17 +102,29 @@ export default function ShopView() {
                 className="group flex flex-col overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
               >
                 <div
-                  className={`relative flex aspect-[4/3] items-center justify-center ${CATEGORY_TINT[product.category]}`}
+                  className={`relative flex aspect-[4/3] items-center justify-center overflow-hidden ${CATEGORY_TINT[product.category]}`}
                 >
-                  <span
-                    className="text-5xl transition group-hover:scale-110 sm:text-6xl"
-                    aria-hidden="true"
-                  >
-                    {product.icon}
-                  </span>
-                  {guide && (
+                  {product.image ? (
+                    // A plain <img>: photos come from the Supabase project's
+                    // storage host, which next.config.ts does not pin
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={product.image}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                  ) : (
+                    <span
+                      className="text-5xl transition group-hover:scale-110 sm:text-6xl"
+                      aria-hidden="true"
+                    >
+                      {product.icon}
+                    </span>
+                  )}
+                  {guideId && (
                     <Link
-                      href={`/guides/${guide.id}`}
+                      href={`/guides/${guideId}`}
                       className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-emerald-800 shadow-sm hover:bg-white"
                     >
                       <BookOpenIcon className="h-3.5 w-3.5" aria-hidden="true" />

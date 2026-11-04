@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STATIC_CATALOG } from "@/lib/products";
 import {
   computePlan,
   containerFor,
@@ -43,7 +44,7 @@ describe("containerFor (BR-15)", () => {
 
 describe("computePlan with a single vegetable", () => {
   // 1 person eating 150 g of tomato a week, 2 sq ft: worked by hand
-  const plan = computePlan(onlyTomato());
+  const plan = computePlan(onlyTomato(), STATIC_CATALOG);
   const [row] = plan.rows;
 
   it("works out consumption and market cost (BR-01, BR-02)", () => {
@@ -92,7 +93,7 @@ describe("computePlan with a single vegetable", () => {
 });
 
 describe("computePlan with the default inputs (AC-01)", () => {
-  const plan = computePlan(defaultInputs());
+  const plan = computePlan(defaultInputs(), STATIC_CATALOG);
 
   it("allocates space by value per sq ft, highest first (BR-06, BR-07)", () => {
     expect(plan.rows.map((row) => row.veg.id)).toEqual([
@@ -155,7 +156,7 @@ describe("computePlan with the default inputs (AC-01)", () => {
 });
 
 describe("computePlan with no usable space (AC-02)", () => {
-  const plan = computePlan({ ...defaultInputs(), space: 0 });
+  const plan = computePlan({ ...defaultInputs(), space: 0 }, STATIC_CATALOG);
 
   it("plants nothing and leaves the shopping list empty", () => {
     expect(plan.totals.plants).toBe(0);
@@ -178,7 +179,7 @@ describe("computePlan with invalid inputs (FR-P-07)", () => {
     });
     inputs.veg.tomato.price = Number.NaN;
 
-    const plan = computePlan(inputs);
+    const plan = computePlan(inputs, STATIC_CATALOG);
 
     expect(plan.rows[0].annualNeedKg).toBe(0);
     expect(plan.totals.plants).toBe(0);

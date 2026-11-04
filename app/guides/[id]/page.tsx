@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import GuideView from "@/components/guides/GuideView";
-import { getGuide } from "@/lib/data/guides";
+import { summarizeGuides } from "@/lib/guides";
+import { getGuide, getGuides } from "@/lib/guides-server";
 
 type GuidePageProps = {
   params: Promise<{ id: string }>;
@@ -10,16 +11,18 @@ type GuidePageProps = {
 export async function generateMetadata({
   params,
 }: GuidePageProps): Promise<Metadata> {
-  const guide = getGuide((await params).id);
+  const guide = await getGuide((await params).id);
   return guide ? { title: `${guide.name.en} grow guide` } : {};
 }
 
 export default async function GuidePage({ params }: GuidePageProps) {
   const { id } = await params;
+  const guides = await getGuides();
+  const guide = guides.find((candidate) => candidate.id === id);
 
-  if (!getGuide(id)) {
+  if (!guide) {
     notFound();
   }
 
-  return <GuideView id={id} />;
+  return <GuideView guide={guide} guides={summarizeGuides(guides)} />;
 }

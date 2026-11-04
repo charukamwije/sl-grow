@@ -34,3 +34,16 @@ export const APPLICATION_REF_PREFIX = "APP-";
 export function generateApplicationRef(): string {
   return generateOrderRef().replace(ORDER_REF_PREFIX, APPLICATION_REF_PREFIX);
 }
+
+export const CERTIFICATE_CODE_PREFIX = "ASW-C-";
+
+const CERTIFICATE_PATTERN = new RegExp(`^${CERTIFICATE_CODE_PREFIX}[${ALPHABET}]{${LENGTH}}$`);
+
+/** A certificate's public code, e.g. ASW-C-7K3P9Q, shown at /verify/<code> */
+export function generateCertificateCode(): string {
+  return generateOrderRef().replace(ORDER_REF_PREFIX, CERTIFICATE_CODE_PREFIX);
+}
+
+export function isCertificateCode(value: unknown): value is string {
+  return typeof value === "string" && CERTIFICATE_PATTERN.test(value);
+}

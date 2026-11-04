@@ -1,16 +1,23 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME } from "@/lib/firebase/session";
 import { cookieJar } from "../helpers/cookie-jar";
-import { firestoreDouble } from "../helpers/firestore-double";
+import { stubSupabaseEnv, supabaseDouble } from "../helpers/supabase-double";
 
-const adminAuth = vi.hoisted(() => ({
-  verifySessionCookie: vi.fn(),
-}));
-
-vi.mock("@/lib/firebase/admin", async () => {
-  const { firestoreDouble } = await import("../helpers/firestore-double");
-  return { adminAuth, adminDb: firestoreDouble.adminDb };
+vi.mock("@/lib/catalog-server", async () => {
+  const { STATIC_CATALOG } = await import("@/lib/products");
+  return { getCatalog: async () => STATIC_CATALOG };
+});
+vi.mock("@/lib/supabase/admin", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { adminDb: supabaseDouble.admin };
+});
+vi.mock("@/lib/supabase/server", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { createClient: async () => supabaseDouble.client };
+});
+vi.mock("@/lib/supabase/store", async (importOriginal) => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { ...(await importOriginal<object>()), ...supabaseDouble.store };
 });
 vi.mock("next/headers", async () => {
   const { cookieJar } = await import("../helpers/cookie-jar");
@@ -29,6 +36,7 @@ const details = {
   name: "Nimal",
   phone: "0771234567",
   method: "pickup",
+  payment: "cod",
   address: "",
   notes: "",
 };
@@ -45,17 +53,14 @@ function orderRequest(
 }
 
 function givenSession(uid: string) {
-  cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "session-cookie" });
-  adminAuth.verifySessionCookie.mockResolvedValue({
-    uid,
-    firebase: { sign_in_provider: "google.com" },
-  });
+  supabaseDouble.givenUser(uid);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   cookieJar.reset();
-  firestoreDouble.reset();
+  supabaseDouble.reset();
+  stubSupabaseEnv();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -71,14 +76,14 @@ describe("POST /api/orders", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(firestoreDouble.add).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.insertOrder).not.toHaveBeenCalled();
   });
 
-  it("stores nothing for a guest (AC-17)", async () => {
+  it("asks a guest to sign in and stores nothing", async () => {
     const response = await POST(orderRequest({ details, cart: { s_tomato: 1 } }));
 
     expect(response.status).toBe(401);
-    expect(firestoreDouble.add).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.insertOrder).not.toHaveBeenCalled();
   });
 
   it("saves the order under the session's uid with catalogue prices (BR-21)", async () => {
@@ -95,12 +100,13 @@ describe("POST /api/orders", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(firestoreDouble.add).toHaveBeenCalledWith(
-      "users/user-1/orders",
+    expect(supabaseDouble.store.insertOrder).toHaveBeenCalledWith(
+      "user-1",
       expect.objectContaining({
         name: "Nimal",
         phone: "0771234567",
         method: "pickup",
+        payment_method: "cod",
         items: [
           { code: "S-TOMATO", name: "Tomato seedling (Thakkali)", qty: 2, price: 80, lineTotal: 160 },
           { code: "F-COMPOST", name: "Compost (10 kg bag)", qty: 1, price: 650, lineTotal: 650 },
@@ -110,33 +116,47 @@ describe("POST /api/orders", () => {
     );
   });
 
-  it("stores the reference the customer was given in WhatsApp", async () => {
+  it("answers with the order and the reference the server made", async () => {
     givenSession("user-1");
 
     const response = await POST(
+      // A client-sent reference is ignored: the server makes them
       orderRequest({ details, cart: { s_tomato: 1 }, ref: "ASW-7K3P9Q" })
     );
 
-    await expect(response.json()).resolves.toMatchObject({ success: true, ref: "ASW-7K3P9Q" });
-    expect(firestoreDouble.add).toHaveBeenCalledWith(
-      "users/user-1/orders",
-      expect.objectContaining({ ref: "ASW-7K3P9Q" })
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      id: "new-order",
+      ref: "ASW-NEW234",
+    });
+    expect(supabaseDouble.store.insertOrder).toHaveBeenCalledWith(
+      "user-1",
+      expect.not.objectContaining({ ref: expect.anything() })
     );
   });
 
-  it("replaces a malformed reference instead of storing it", async () => {
+  it("stores a bank transfer order", async () => {
+    givenSession("user-1");
+
+    await POST(
+      orderRequest({ details: { ...details, payment: "bank_transfer" }, cart: { s_tomato: 1 } })
+    );
+
+    expect(supabaseDouble.store.insertOrder).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ payment_method: "bank_transfer" })
+    );
+  });
+
+  it.each(["card", undefined])("refuses the payment method %p", async (payment) => {
     givenSession("user-1");
 
     const response = await POST(
-      orderRequest({ details, cart: { s_tomato: 1 }, ref: "<script>" })
+      orderRequest({ details: { ...details, payment }, cart: { s_tomato: 1 } })
     );
 
-    const { ref } = await response.json();
-    expect(ref).toMatch(/^ASW-[2-9A-HJKMNP-TW-Z]{6}$/);
-    expect(firestoreDouble.add).toHaveBeenCalledWith(
-      "users/user-1/orders",
-      expect.objectContaining({ ref })
-    );
+    expect(response.status).toBe(400);
+    expect(supabaseDouble.store.insertOrder).not.toHaveBeenCalled();
   });
 
   it("refuses an order without a name or phone", async () => {
@@ -147,7 +167,7 @@ describe("POST /api/orders", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(firestoreDouble.add).not.toHaveBeenCalled();
+    expect(supabaseDouble.store.insertOrder).not.toHaveBeenCalled();
   });
 
   it("refuses a delivery without an address", async () => {
@@ -181,8 +201,8 @@ describe("POST /api/orders", () => {
       })
     );
 
-    expect(firestoreDouble.add).toHaveBeenCalledWith(
-      "users/user-1/orders",
+    expect(supabaseDouble.store.insertOrder).toHaveBeenCalledWith(
+      "user-1",
       expect.objectContaining({ address: "" })
     );
   });

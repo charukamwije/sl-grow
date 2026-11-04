@@ -1,14 +1,10 @@
 "use client";
 
+import { useCatalog } from "@/contexts/catalog-context";
 import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useNotification } from "@/contexts/notification-context";
-import {
-  formatLKR,
-  getProduct,
-  lineTotal,
-  productCode,
-} from "@/lib/products";
+import { formatLKR, productCode } from "@/lib/products";
 import { btnSmall } from "../ui/styles";
 
 type ProductTableProps = {
@@ -25,6 +21,7 @@ type ProductTableProps = {
 export default function ProductTable({ lines, addButtons }: ProductTableProps) {
   const { t, l } = useLanguage();
   const { add } = useCart();
+  const { getProduct, lineTotal } = useCatalog();
   const { addSuccessNotification } = useNotification();
 
   const total = lines.reduce(

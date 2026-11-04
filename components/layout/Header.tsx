@@ -4,23 +4,29 @@ import { useState, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AcademicCapIcon,
+  ArrowRightEndOnRectangleIcon,
+  ArrowRightStartOnRectangleIcon,
   Bars3Icon,
   BookOpenIcon,
   BuildingStorefrontIcon,
   ChartBarIcon,
-  AcademicCapIcon,
+  Cog6ToothIcon,
   ShoppingCartIcon,
   SparklesIcon,
   UserCircleIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useSession } from "@/contexts/session-context";
 import type { StringKey } from "@/lib/i18n/strings";
 import { LANGS, type Lang } from "@/lib/i18n/types";
+import { hasRole } from "@/lib/supabase/roles";
 import AppLogo from "../icons/AppLogo";
 import AuthModal from "../modals/AuthModal";
+import ProfileMenu from "./ProfileMenu";
 
 const LANG_LABELS: Record<Lang, string> = {
   en: "EN",
@@ -36,16 +42,21 @@ const LANG_NAMES: Record<Lang, string> = {
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
-// NFR-02: every main function is one tap away. The cart is not listed here:
-// it has its own icon in the bar, always visible, with the item count.
+// NFR-02: every main function is one tap away. The cart and the account are
+// not listed here: the cart has its own icon in the bar, with the item count,
+// and the account is the profile menu next to it (the menu's foot on phones).
 export const NAV: { href: string; key: StringKey; icon: Icon }[] = [
   { href: "/planner", key: "nav.planner", icon: SparklesIcon },
   { href: "/shop", key: "nav.shop", icon: BuildingStorefrontIcon },
   { href: "/guides", key: "nav.guides", icon: BookOpenIcon },
   { href: "/plantation", key: "nav.plantation", icon: ChartBarIcon },
   { href: "/join", key: "nav.join", icon: AcademicCapIcon },
-  { href: "/account", key: "nav.account", icon: UserCircleIcon },
 ];
+
+const mobileItem = (active: boolean) =>
+  `flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-base font-medium transition ${
+    active ? "bg-emerald-50 text-emerald-700" : "text-gray-800 hover:bg-gray-50"
+  }`;
 
 function LanguageSwitch({ large }: { large?: boolean }) {
   const { lang, setLang, t } = useLanguage();
@@ -84,30 +95,18 @@ export default function Header() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { count } = useCart();
+  const { signOut, isAuthLoading } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const firstName =
-    user?.displayName?.split(" ")[0] || user?.email?.split("@")[0] || "";
-
   const isActive = (href: string) => pathname.startsWith(href);
+  const isAdmin = hasRole(user?.role, "admin");
   const closeMenu = () => setMenuOpen(false);
 
-  const signInButton = (full?: boolean) =>
-    accountsEnabled && !user ? (
-      <button
-        type="button"
-        onClick={() => {
-          closeMenu();
-          setIsModalOpen(true);
-        }}
-        className={`rounded-full bg-gray-900 font-semibold text-white transition hover:bg-gray-700 ${
-          full ? "w-full px-4 py-3 text-sm" : "px-3.5 py-1.5 text-xs"
-        }`}
-      >
-        {t("signIn")}
-      </button>
-    ) : null;
+  const openSignIn = () => {
+    closeMenu();
+    setIsModalOpen(true);
+  };
 
   return (
     <>
@@ -150,17 +149,6 @@ export default function Header() {
               <LanguageSwitch />
             </div>
 
-            {accountsEnabled && user && (
-              <Link
-                href="/account"
-                className="hidden max-w-[8rem] items-center gap-1 truncate rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 lg:flex"
-              >
-                <UserCircleIcon className="h-4 w-4 shrink-0" />
-                {firstName}
-              </Link>
-            )}
-            <div className="hidden lg:block">{signInButton()}</div>
-
             <Link
               href="/cart"
               aria-label={t("nav.cart")}
@@ -179,6 +167,10 @@ export default function Header() {
                 </span>
               )}
             </Link>
+
+            <div className="hidden lg:block">
+              <ProfileMenu onSignIn={openSignIn} />
+            </div>
 
             <button
               type="button"
@@ -213,30 +205,76 @@ export default function Header() {
                         href={href}
                         onClick={closeMenu}
                         aria-current={active ? "page" : undefined}
-                        className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-base font-medium transition ${
-                          active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "text-gray-800 hover:bg-gray-50"
-                        }`}
+                        className={mobileItem(active)}
                       >
                         <Icon className="h-6 w-6" aria-hidden="true" />
                         {t(key)}
-                        {key === "nav.account" && user && (
-                          <span className="ml-auto truncate text-sm text-gray-500">
-                            {firstName}
-                          </span>
-                        )}
                       </Link>
                     </li>
                   );
                 })}
               </ul>
             </nav>
-            <div className="mt-4 space-y-3 border-t border-black/5 pt-4">
-              <div className="sm:hidden">
-                <LanguageSwitch large />
-              </div>
-              {signInButton(true)}
+            {/* The profile menu's items, at the foot of the phone menu */}
+            <div className="mt-4 space-y-1 border-t border-black/5 pt-4">
+              {user && (
+                <div className="px-4 pb-2">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {user.displayName || user.email}
+                  </p>
+                  {user.displayName && user.email && (
+                    <p className="truncate text-xs text-gray-500">{user.email}</p>
+                  )}
+                </div>
+              )}
+              <Link
+                href="/account"
+                onClick={closeMenu}
+                aria-current={isActive("/account") ? "page" : undefined}
+                className={mobileItem(isActive("/account"))}
+              >
+                <UserCircleIcon className="h-6 w-6" aria-hidden="true" />
+                {t("nav.account")}
+              </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={closeMenu}
+                  aria-current={isActive("/admin") ? "page" : undefined}
+                  className={mobileItem(isActive("/admin"))}
+                >
+                  <Cog6ToothIcon className="h-6 w-6" aria-hidden="true" />
+                  Admin panel
+                </Link>
+              )}
+              {accountsEnabled &&
+                (user ? (
+                  <button
+                    type="button"
+                    disabled={isAuthLoading}
+                    onClick={() => {
+                      closeMenu();
+                      void signOut();
+                    }}
+                    className={`${mobileItem(false)} w-full disabled:opacity-50`}
+                  >
+                    <ArrowRightStartOnRectangleIcon className="h-6 w-6" aria-hidden="true" />
+                    {t("signOut")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isAuthLoading}
+                    onClick={openSignIn}
+                    className={`${mobileItem(false)} w-full disabled:opacity-50`}
+                  >
+                    <ArrowRightEndOnRectangleIcon className="h-6 w-6" aria-hidden="true" />
+                    {t("signIn")}
+                  </button>
+                ))}
+            </div>
+            <div className="mt-3 sm:hidden">
+              <LanguageSwitch large />
             </div>
           </div>
         )}

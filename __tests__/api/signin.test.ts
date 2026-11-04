@@ -1,24 +1,14 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_COOKIE_NAME, SESSION_EXPIRES_IN } from "@/lib/firebase/session";
-import { cookieJar } from "../helpers/cookie-jar";
+import { stubSupabaseEnv, supabaseDouble } from "../helpers/supabase-double";
 
-const adminAuth = vi.hoisted(() => ({
-  verifyIdToken: vi.fn(),
-  createSessionCookie: vi.fn(),
-  verifySessionCookie: vi.fn(),
-}));
-
-vi.mock("@/lib/firebase/admin", () => ({ adminAuth }));
-vi.mock("next/headers", async () => {
-  const { cookieJar } = await import("../helpers/cookie-jar");
-  return { cookies: async () => cookieJar.store };
+vi.mock("@/lib/supabase/server", async () => {
+  const { supabaseDouble } = await import("../helpers/supabase-double");
+  return { createClient: async () => supabaseDouble.client };
 });
 
 const { POST } = await import("@/app/api/auth/signin/route");
-
-const NOW = new Date("2026-01-01T00:00:00Z");
-const nowSeconds = NOW.getTime() / 1000;
+const { GET: CALLBACK } = await import("@/app/auth/callback/route");
 
 const DEFAULT_HEADERS = {
   host: "example.com",
@@ -37,139 +27,127 @@ function signinRequest(
   });
 }
 
-function decodedToken(overrides: Record<string, unknown> = {}) {
-  return { uid: "user-1", auth_time: nowSeconds, ...overrides };
+function oauthOptions() {
+  return supabaseDouble.auth.signInWithOAuth.mock.calls[0][0].options;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  cookieJar.reset();
-  vi.setSystemTime(NOW);
+  vi.unstubAllEnvs();
+  supabaseDouble.reset();
+  stubSupabaseEnv();
   vi.spyOn(console, "error").mockImplementation(() => {});
-  adminAuth.createSessionCookie.mockResolvedValue("minted-session-cookie");
+  supabaseDouble.auth.signInWithOAuth.mockResolvedValue({
+    data: { provider: "google", url: "https://accounts.google.com/o/oauth2" },
+    error: null,
+  });
 });
 
 describe("POST /api/auth/signin", () => {
-  it("rejects a cross-site request before reading the body", async () => {
+  it("returns the Google URL, coming back through the callback", async () => {
+    const response = await POST(signinRequest({ next: "/shop" }));
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      url: "https://accounts.google.com/o/oauth2",
+    });
+    expect(supabaseDouble.auth.signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "google" })
+    );
+    expect(oauthOptions()).toMatchObject({
+      redirectTo: "https://example.com/auth/callback?next=%2Fshop",
+      skipBrowserRedirect: true,
+    });
+    expect(oauthOptions().queryParams).toBeUndefined();
+  });
+
+  it("asks Google to pick the account again for a re-authentication", async () => {
+    await POST(signinRequest({ next: "/account", reauth: true }));
+
+    expect(oauthOptions().queryParams).toEqual({ prompt: "select_account" });
+  });
+
+  it("refuses to come back to another site", async () => {
+    await POST(signinRequest({ next: "https://attacker.example" }));
+
+    expect(oauthOptions().redirectTo).toBe(
+      "https://example.com/auth/callback?next=%2F"
+    );
+  });
+
+  it("rejects a cross-site request (login CSRF)", async () => {
     const response = await POST(
-      signinRequest({ idToken: "token" }, { host: "example.com" })
+      signinRequest({}, { ...DEFAULT_HEADERS, origin: "https://attacker.example" })
     );
 
     expect(response.status).toBe(403);
-    expect(adminAuth.verifyIdToken).not.toHaveBeenCalled();
+    expect(supabaseDouble.auth.signInWithOAuth).not.toHaveBeenCalled();
   });
 
-  it("rejects a body that is not declared as JSON", async () => {
-    const response = await POST(
-      signinRequest(
-        { idToken: "token" },
-        { ...DEFAULT_HEADERS, "content-type": "text/plain" }
-      )
-    );
+  it("answers 503 in guest mode", async () => {
+    vi.unstubAllEnvs();
 
-    expect(response.status).toBe(415);
-    expect(adminAuth.verifyIdToken).not.toHaveBeenCalled();
-  });
-
-  it("requires an ID token", async () => {
     const response = await POST(signinRequest({}));
 
-    expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "ID token is required.",
-    });
+    expect(response.status).toBe(503);
+    expect(supabaseDouble.auth.signInWithOAuth).not.toHaveBeenCalled();
   });
 
-  it("rejects an ID token Firebase will not verify", async () => {
-    adminAuth.verifyIdToken.mockRejectedValue({ code: "auth/id-token-expired" });
-
-    const response = await POST(signinRequest({ idToken: "bad-token" }));
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "Authentication failed.",
+  it("answers 500 when Supabase cannot start the flow", async () => {
+    supabaseDouble.auth.signInWithOAuth.mockResolvedValue({
+      data: { provider: "google", url: null },
+      error: new Error("provider disabled"),
     });
-    expect(cookieJar.records.has(SESSION_COOKIE_NAME)).toBe(false);
+
+    const response = await POST(signinRequest({}));
+
+    expect(response.status).toBe(500);
+  });
+});
+
+describe("GET /auth/callback", () => {
+  function callback(query: string) {
+    return CALLBACK(new NextRequest(`https://example.com/auth/callback?${query}`));
+  }
+
+  it("exchanges the code and goes on to the requested page", async () => {
+    supabaseDouble.auth.exchangeCodeForSession.mockResolvedValue({ error: null });
+
+    const response = await callback("code=abc&next=%2Fplanner");
+
+    expect(supabaseDouble.auth.exchangeCodeForSession).toHaveBeenCalledWith("abc");
+    expect(response.headers.get("location")).toBe("https://example.com/planner");
   });
 
-  it("asks Firebase to reject revoked tokens", async () => {
-    adminAuth.verifyIdToken.mockResolvedValue(decodedToken());
+  it.each(["https://attacker.example", "//attacker.example", "/\\attacker.example"])(
+    "never redirects off the site (next=%s)",
+    async (next) => {
+      supabaseDouble.auth.exchangeCodeForSession.mockResolvedValue({ error: null });
 
-    await POST(signinRequest({ idToken: "token" }));
+      const response = await callback(`code=abc&next=${encodeURIComponent(next)}`);
 
-    expect(adminAuth.verifyIdToken).toHaveBeenCalledWith("token", true);
-  });
+      expect(response.headers.get("location")).toBe("https://example.com/");
+    }
+  );
 
-  it("mints a session cookie for a fresh sign-in", async () => {
-    adminAuth.verifyIdToken.mockResolvedValue(decodedToken());
-
-    const response = await POST(signinRequest({ idToken: "token" }));
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      success: true,
-      uid: "user-1",
+  it("sends a failed exchange to the Account page", async () => {
+    supabaseDouble.auth.exchangeCodeForSession.mockResolvedValue({
+      error: new Error("code verifier missing"),
     });
-    expect(adminAuth.createSessionCookie).toHaveBeenCalledWith("token", {
-      expiresIn: SESSION_EXPIRES_IN,
-    });
-    expect(cookieJar.records.get(SESSION_COOKIE_NAME)).toMatchObject({
-      value: "minted-session-cookie",
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_EXPIRES_IN / 1000,
-    });
-  });
 
-  it("refuses to trade a stale ID token for a two week session", async () => {
-    adminAuth.verifyIdToken.mockResolvedValue(
-      decodedToken({ auth_time: nowSeconds - 3600 })
+    const response = await callback("code=abc&next=%2Fshop");
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.com/account?signInFailed=1"
     );
-
-    const response = await POST(signinRequest({ idToken: "stale-token" }));
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: "Recent sign-in required.",
-    });
-    expect(adminAuth.createSessionCookie).not.toHaveBeenCalled();
   });
 
-  it("re-mints for a stale token when this browser already holds that session", async () => {
-    // Signing in again as the same user grants no new access, so it is
-    // exempt from the freshness rule.
-    cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "existing" });
-    adminAuth.verifySessionCookie.mockResolvedValue({
-      uid: "user-1",
-      firebase: { sign_in_provider: "google.com" },
-    });
-    adminAuth.verifyIdToken.mockResolvedValue(
-      decodedToken({ auth_time: nowSeconds - 3600 })
+  it("sends a cancelled sign-in to the Account page", async () => {
+    const response = await callback("error=access_denied");
+
+    expect(supabaseDouble.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toBe(
+      "https://example.com/account?signInFailed=1"
     );
-
-    const response = await POST(signinRequest({ idToken: "stale-token" }));
-
-    expect(response.status).toBe(200);
-    expect(adminAuth.createSessionCookie).toHaveBeenCalled();
-  });
-
-  it("does not exempt a stale token when the session belongs to another user", async () => {
-    cookieJar.store.set({ name: SESSION_COOKIE_NAME, value: "existing" });
-    adminAuth.verifySessionCookie.mockResolvedValue({
-      uid: "someone-else",
-      firebase: { sign_in_provider: "google.com" },
-    });
-    adminAuth.verifyIdToken.mockResolvedValue(
-      decodedToken({ auth_time: nowSeconds - 3600 })
-    );
-
-    const response = await POST(signinRequest({ idToken: "stale-token" }));
-
-    expect(response.status).toBe(401);
-    expect(adminAuth.createSessionCookie).not.toHaveBeenCalled();
   });
 });
