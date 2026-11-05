@@ -14,13 +14,15 @@ import type { CheckoutMethod, OrderStatus, PaymentMethod } from "./checkout";
 export function buildEnquiryMessage(
   cropName: string,
   hectares: number,
-  acres: number
+  acres: number,
+  district?: string
 ): string {
   return [
     "Plantation enquiry - Aswedduma",
     "",
     `Crop: ${cropName}`,
     `Land size: ${hectares.toFixed(2)} ha (${acres.toFixed(2)} acres)`,
+    ...(district ? [`District: ${district}`] : []),
     "",
     "Please contact me about planting material and setup.",
   ].join("\n");
