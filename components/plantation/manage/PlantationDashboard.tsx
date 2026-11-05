@@ -16,6 +16,7 @@ import {
   areaLabel,
   choiceLabel,
   CROP_LABELS,
+  EXPECTED_UNIT,
   EXPENSE_CATEGORIES,
   HARVEST_PRODUCTS,
   INCOME_CATEGORIES,
@@ -94,7 +95,7 @@ export default function PlantationDashboard({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const summary = useMemo(() => summarize(records, year), [records, year]);
+  const summary = useMemo(() => summarize(records, year, plantation), [records, year, plantation]);
   const owed = useMemo(() => wagesOwedByWorker(records.workDays), [records.workDays]);
   const workerName = (id: string) => records.workers.find((worker) => worker.id === id)?.name ?? "Removed worker";
   const crop = plantation.crop;
@@ -283,7 +284,12 @@ export default function PlantationDashboard({
       </section>
 
       <section className={card}>
-        <HarvestChart months={summary.harvestByMonth} year={year} />
+        <HarvestChart
+          months={summary.harvestByMonth}
+          year={year}
+          unit={EXPECTED_UNIT[crop]}
+          plantedKnown={Boolean(plantation.planted_on)}
+        />
         {summary.harvestByProduct.length > 1 && (
           <p className="mt-3 text-xs text-gray-600">
             {summary.harvestByProduct

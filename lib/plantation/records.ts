@@ -6,8 +6,12 @@
  * Field names are the database columns (supabase/migrations/0009), so a
  * checked record is stored as it is and a stored row fills the form again.
  */
+import { CROPS } from "../data/plantation";
+import { ramp } from "./calc";
 import {
   ACTIVITY_TYPES,
+  EXPECTED_FACTOR,
+  MONTHLY_SHARE,
   AREA_UNIT_CHOICES,
   toHectares,
   type AreaUnit,
@@ -287,7 +291,15 @@ export function checkRecord(
   return { ok: true, values };
 }
 
-export type MonthTotal = { month: number; kg: number };
+export type MonthTotal = {
+  month: number;
+  /** Everything harvested, whatever the product */
+  kg: number;
+  /** Harvested, in the unit the expected harvest is measured in */
+  comparableKg: number;
+  /** What the land should give this month, or null when it cannot be told */
+  expectedKg: number | null;
+};
 
 export type PlantationSummary = {
   income: number;
@@ -304,10 +316,28 @@ export type PlantationSummary = {
 
 const inYear = (value: string, year: number) => value.startsWith(`${year}-`);
 
-/** One year's totals for a plantation */
+/**
+ * What the plantation should harvest in each month of `year`: the full yield
+ * per hectare from the calculator's assumptions, times the area, times how
+ * far the bushes are into bearing (none before the first harvest year, half
+ * in it), spread by the usual season. The age counts the planting year as
+ * year 0; without a planting date the land is taken to be in full bearing.
+ */
+export function expectedByMonth(
+  plantation: Pick<Plantation, "crop" | "area_ha" | "planted_on">,
+  year: number
+): number[] {
+  const assumptions = CROPS.find((crop) => crop.id === plantation.crop)!.defaults;
+  const age = plantation.planted_on ? year - Number(plantation.planted_on.slice(0, 4)) : Infinity;
+  const yearly = age < 0 ? 0 : assumptions.yieldKg * plantation.area_ha * ramp(age, assumptions.firstHarvestYear);
+  return MONTHLY_SHARE[plantation.crop].map((share) => yearly * share);
+}
+
+/** One year's totals for a plantation; with the plantation, the expected harvest too */
 export function summarize(
   records: Pick<PlantationRecords, "harvests" | "transactions" | "workDays">,
-  year: number
+  year: number,
+  plantation?: Pick<Plantation, "crop" | "area_ha" | "planted_on">
 ): PlantationSummary {
   let income = 0;
   let expenses = 0;
@@ -325,13 +355,22 @@ export function summarize(
     if (!day.paid) wagesOwed += day.wage;
   }
 
-  const byMonth = Array.from({ length: 12 }, (_, month) => ({ month, kg: 0 }));
+  const expected = plantation ? expectedByMonth(plantation, year) : null;
+  const factors = plantation ? EXPECTED_FACTOR[plantation.crop] : {};
+  const byMonth: MonthTotal[] = Array.from({ length: 12 }, (_, month) => ({
+    month,
+    kg: 0,
+    comparableKg: 0,
+    expectedKg: expected ? expected[month] : null,
+  }));
   const byProduct = new Map<string, number>();
   let harvestKg = 0;
   for (const harvest of records.harvests) {
     if (!inYear(harvest.harvested_on, year)) continue;
     harvestKg += harvest.quantity_kg;
-    byMonth[Number(harvest.harvested_on.slice(5, 7)) - 1].kg += harvest.quantity_kg;
+    const month = byMonth[Number(harvest.harvested_on.slice(5, 7)) - 1];
+    month.kg += harvest.quantity_kg;
+    month.comparableKg += harvest.quantity_kg * (factors[harvest.product] ?? 0);
     byProduct.set(harvest.product, (byProduct.get(harvest.product) ?? 0) + harvest.quantity_kg);
   }
 

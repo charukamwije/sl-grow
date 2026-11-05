@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkRecord,
+  expectedByMonth,
   recordYears,
   summarize,
   wagesOwedByWorker,
@@ -109,8 +110,42 @@ describe("summarize", () => {
       profit: 19000,
       harvestKg: 150,
     });
-    expect(summary.harvestByMonth[0]).toEqual({ month: 0, kg: 150 });
+    expect(summary.harvestByMonth[0]).toMatchObject({ month: 0, kg: 150 });
     expect(summary.harvestByProduct).toEqual([{ product: "green_leaf", kg: 150 }]);
+  });
+
+  it("compares the harvest with what the land should give", () => {
+    // 1 ha of tea in full bearing: 8,000 kg green leaf a year, 7% in January
+    const summary = summarize(records, 2026, { crop: "tea", area_ha: 1, planted_on: "2015-04-01" });
+
+    expect(summary.harvestByMonth[0].comparableKg).toBe(150);
+    expect(summary.harvestByMonth[0].expectedKg).toBeCloseTo(560);
+  });
+
+  it("counts made tea as the green leaf it came from, and not cinnamon leaves as bark", () => {
+    const harvests = [
+      { id: "m", harvested_on: "2026-02-01", product: "made_tea", quantity_kg: 10, block: "", grade: "", notes: "" },
+    ];
+    const tea = summarize({ ...records, harvests }, 2026, { crop: "tea", area_ha: 1, planted_on: null });
+    const leaves = summarize(
+      { ...records, harvests: [{ ...harvests[0], product: "leaf" }] },
+      2026,
+      { crop: "cinnamon", area_ha: 1, planted_on: null }
+    );
+
+    expect(tea.harvestByMonth[1].comparableKg).toBe(45);
+    expect(leaves.harvestByMonth[1].comparableKg).toBe(0);
+    expect(leaves.harvestKg).toBe(10);
+  });
+
+  it("expects nothing before the first harvest year and half in it", () => {
+    const year = (planted: string) =>
+      expectedByMonth({ crop: "cinnamon", area_ha: 1, planted_on: planted }, 2026).reduce((a, b) => a + b, 0);
+
+    expect(year("2025-05-01")).toBe(0);
+    expect(year("2023-05-01")).toBeCloseTo(300);
+    expect(year("2020-05-01")).toBeCloseTo(600);
+    expect(year("2027-05-01")).toBe(0);
   });
 
   it("leaves other years out", () => {

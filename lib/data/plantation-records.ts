@@ -122,6 +122,39 @@ export const WORK_TASKS: Record<PlantationCrop, Choice[]> = {
   ],
 };
 
+/**
+ * ==== EXPECTED HARVEST (PLACEHOLDERS, OI-19) ====
+ *
+ * What the "expected" harvest is measured in, and how a year's harvest
+ * usually spreads over the months in Sri Lanka. The yearly yield comes from
+ * the calculator's assumptions (lib/data/plantation.ts). Rough guides only,
+ * to be checked with the Tea Research Institute and the Department of Export
+ * Agriculture.
+ */
+export const EXPECTED_UNIT: Record<PlantationCrop, string> = {
+  tea: "green leaf",
+  cinnamon: "dry bark",
+};
+
+/**
+ * Kg of each harvest product counted towards the expected harvest, per kg
+ * recorded. Made tea counts as the green leaf it was made from (about 4.5 kg
+ * a kg); cinnamon leaves for oil are not bark, so they do not count.
+ */
+export const EXPECTED_FACTOR: Record<PlantationCrop, Record<string, number>> = {
+  tea: { green_leaf: 1, made_tea: 4.5 },
+  cinnamon: { quills: 1, quillings: 1, featherings: 1, chips: 1, leaf: 0 },
+};
+
+/** Share of a year's harvest in each month, January first; each adds up to 1 */
+export const MONTHLY_SHARE: Record<PlantationCrop, number[]> = {
+  // Flushes in March to May and October to December, slower in the dry months
+  tea: [0.07, 0.07, 0.09, 0.1, 0.1, 0.08, 0.07, 0.07, 0.08, 0.09, 0.09, 0.09],
+  // Main peeling season with the south-west monsoon (May to August), a
+  // smaller one with the north-east monsoon (October to January)
+  cinnamon: [0.05, 0, 0, 0.02, 0.14, 0.17, 0.17, 0.14, 0.06, 0.09, 0.1, 0.06],
+};
+
 export function choiceLabel(choices: Choice[], value: string): string {
   return choices.find((choice) => choice.value === value)?.label ?? value;
 }
