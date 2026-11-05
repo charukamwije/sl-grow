@@ -5,7 +5,7 @@ import { saveProduct, type ProductFormState } from "@/app/admin/products/actions
 import Loading from "@/components/icons/Loading";
 import { btnPrimary, card, input, label } from "@/components/ui/styles";
 import type { AdminProduct } from "@/lib/admin-products";
-import { CATEGORIES, UNITS } from "@/lib/data/products";
+import { CATEGORIES, CATEGORY_LABELS, UNITS } from "@/lib/data/products";
 import { VEGETABLES } from "@/lib/data/vegetables";
 
 type ProductFormProps = {
@@ -94,7 +94,7 @@ export default function ProductForm({ product, isProtected = false }: ProductFor
           >
             {CATEGORIES.map((category) => (
               <option key={category} value={category}>
-                {category}
+                {CATEGORY_LABELS[category]}
               </option>
             ))}
           </select>

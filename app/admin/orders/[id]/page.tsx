@@ -1,18 +1,44 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { NotifyLinks } from "@/components/admin/NotifyCustomer";
 import OrderStatusControls from "@/components/admin/OrderStatusControls";
+import LocalTime from "@/components/ui/LocalTime";
 import { btnGhost, card, heading, muted, subheading } from "@/components/ui/styles";
-import { getAdminOrder } from "@/lib/admin-orders";
+import { getAdminOrder, type AdminOrder } from "@/lib/admin-orders";
 import { PAYMENT_LABELS, STATUS_LABELS } from "@/lib/order/checkout";
+import { formatMobile, normalizeMobile } from "@/lib/order/phone";
+import {
+  buildCustomerStatusMessage,
+  mailtoLink,
+  NOTIFY_STATUSES,
+  smsLink,
+  waLink,
+} from "@/lib/order/whatsapp";
 import { receiptSignedUrl } from "@/lib/receipts";
 import { formatLKR } from "@/lib/products";
 import { requireRole } from "@/lib/supabase/admin-auth";
 
 export const metadata: Metadata = { title: "Order" };
 
-function formatDate(value: string): string {
-  return `${value.slice(0, 16).replace("T", " ")} UTC`;
+// One-tap updates for the customer, one per status worth telling them about
+function notifyLinks(order: AdminOrder): NotifyLinks {
+  const mobile = normalizeMobile(order.phone);
+  return Object.fromEntries(
+    NOTIFY_STATUSES.map((status) => {
+      const message = buildCustomerStatusMessage(order, status);
+      return [
+        status,
+        {
+          whatsapp: mobile ? waLink(message, mobile) : undefined,
+          sms: mobile ? smsLink(mobile, message) : undefined,
+          email: order.accountEmail
+            ? mailtoLink(order.accountEmail, `Your Aswedduma order ${order.ref ?? ""}`.trim(), message)
+            : undefined,
+        },
+      ];
+    })
+  ) as NotifyLinks;
 }
 
 export default async function AdminOrderPage({
@@ -30,7 +56,7 @@ export default async function AdminOrderPage({
 
   const details: [string, string][] = [
     ["Name", order.name],
-    ["Phone", order.phone],
+    ["Phone", formatMobile(order.phone)],
     ["Method", order.method === "delivery" ? "Delivery" : "Pickup"],
     ["Payment", PAYMENT_LABELS[order.payment]],
     ...(order.method === "delivery" ? ([["Address", order.address || "None given"]] as [string, string][]) : []),
@@ -46,19 +72,34 @@ export default async function AdminOrderPage({
       <div>
         <h1 className={`${heading} font-mono`}>{order.ref ?? "Order"}</h1>
         <p className={muted}>
-          <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time> · Prices as
+          <LocalTime value={order.createdAt} /> · Prices as
           they were when the order was placed
         </p>
       </div>
 
       <section className={`${card} space-y-3`}>
         <h2 className={`${subheading} !mb-0`}>Status</h2>
-        <OrderStatusControls id={order.id} status={order.status} paid={order.paid} />
+        <OrderStatusControls
+          id={order.id}
+          status={order.status}
+          method={order.method}
+          paid={order.paid}
+          notify={notifyLinks(order)}
+        />
         <p className="text-xs text-gray-500">
-          {order.statusUpdatedAt
-            ? `Status last changed ${formatDate(order.statusUpdatedAt)}`
-            : `${STATUS_LABELS.created} when placed`}
-          {order.paidAt ? ` · Marked paid ${formatDate(order.paidAt)}` : ""}
+          {order.statusUpdatedAt ? (
+            <>
+              Status last changed <LocalTime value={order.statusUpdatedAt} />
+            </>
+          ) : (
+            `${STATUS_LABELS.created} when placed`
+          )}
+          {order.paidAt && (
+            <>
+              {" "}
+              · Marked paid <LocalTime value={order.paidAt} />
+            </>
+          )}
         </p>
       </section>
 
@@ -72,7 +113,7 @@ export default async function AdminOrderPage({
           ) : (
             <>
               <p className={muted}>
-                Uploaded {order.receiptUploadedAt ? formatDate(order.receiptUploadedAt) : ""}. Check
+                Uploaded {order.receiptUploadedAt && <LocalTime value={order.receiptUploadedAt} />}. Check
                 the bank for a transfer with the reference {order.ref}, then set the payment to Paid.
                 The link below works for 10 minutes.
               </p>
@@ -115,7 +156,7 @@ export default async function AdminOrderPage({
             href={`tel:${order.phone.replace(/[^\d+]/g, "")}`}
             className="text-sm font-medium text-emerald-700 hover:underline"
           >
-            Call {order.phone}
+            Call {formatMobile(order.phone)}
           </a>
         </p>
       </section>

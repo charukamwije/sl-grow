@@ -1,8 +1,10 @@
 // Fails the build if this module is ever pulled into a client bundle
 import "server-only";
 import type { OrderStatus, PaymentMethod } from "../order/checkout";
+import { readInputs } from "../planner/inputs";
+import type { PlannerInputs } from "../planner/calc";
 import { adminDb } from "./admin";
-import { DatabaseError } from "./store";
+import { DatabaseError, isUuid } from "./store";
 
 export type OrderSummary = {
   id: string;
@@ -35,6 +37,12 @@ export type PlanSummary = {
   people: number;
   space: number;
   total: number;
+};
+
+/** One saved plan with the inputs to show or edit it again */
+export type OwnPlan = PlanSummary & {
+  updatedAt: string | null;
+  inputs: PlannerInputs;
 };
 
 type OrderRow = {
@@ -116,14 +124,12 @@ export async function loadPlans(uid: string): Promise<PlanSummary[]> {
   }));
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * One of the customer's own orders, or null - for someone else's order too,
  * so its page answers 404 rather than revealing that it exists (FR-A-11).
  */
 export async function loadOwnOrder(uid: string, id: string): Promise<OwnOrder | null> {
-  if (!UUID.test(id)) return null;
+  if (!isUuid(id)) return null;
 
   const { data, error, status } = await adminDb
     .from("orders")
@@ -146,5 +152,39 @@ export async function loadOwnOrder(uid: string, id: string): Promise<OwnOrder | 
     notes: data.notes,
     receiptUploadedAt: data.receipt_uploaded_at,
     statusUpdatedAt: data.status_updated_at,
+  };
+}
+
+type OwnPlanRow = PlanRow & {
+  updated_at: string | null;
+  vegetables: unknown;
+};
+
+/** One of the customer's own saved plans, or null (someone else's too, FR-A-11) */
+export async function loadOwnPlan(uid: string, id: string): Promise<OwnPlan | null> {
+  if (!isUuid(id)) return null;
+
+  const { data, error, status } = await adminDb
+    .from("plans")
+    .select("id, created_at, updated_at, people, space, total, vegetables")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle<OwnPlanRow>();
+
+  if (error) throw new DatabaseError(error.message, error.code ?? "", status);
+  if (!data) return null;
+
+  // Stored inputs go through the same checks as a request's
+  const inputs = readInputs({ people: data.people, space: data.space, veg: data.vegetables });
+  if (!inputs) return null;
+
+  return {
+    id: data.id,
+    createdAt: new Date(data.created_at).toISOString(),
+    updatedAt: data.updated_at,
+    people: data.people,
+    space: Number(data.space),
+    total: Number(data.total),
+    inputs,
   };
 }

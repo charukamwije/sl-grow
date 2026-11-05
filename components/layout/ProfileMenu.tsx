@@ -7,6 +7,7 @@ import {
   ArrowRightEndOnRectangleIcon,
   ArrowRightStartOnRectangleIcon,
   Cog6ToothIcon,
+  ShoppingBagIcon,
   UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "@/contexts/auth-context";
@@ -71,6 +72,16 @@ export default function ProfileMenu({ onSignIn }: { onSignIn: () => void }) {
             {t("nav.account")}
           </Link>
         </MenuItem>
+
+        {/* Guests see their device's orders on the account page */}
+        {user && (
+          <MenuItem>
+            <Link href="/account/orders" className={item}>
+              <ShoppingBagIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+              {t("account.orders")}
+            </Link>
+          </MenuItem>
+        )}
 
         {isAdmin && (
           <MenuItem>

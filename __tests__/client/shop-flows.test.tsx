@@ -232,7 +232,8 @@ describe("the Account page for guests", () => {
       screen.getByRole("heading", { name: "You're using Aswedduma as a guest" })
     ).toBeInTheDocument();
     expect(screen.getByText("ASW-7K3P9Q")).toBeInTheDocument();
-    expect(screen.getByText(/2026-11-02 10:15 UTC/)).toBeInTheDocument();
+    // Shown in the browser's own timezone
+    expect(document.querySelector('time[datetime="2026-11-02T10:15:00.000Z"]')).toBeInTheDocument();
     expect(screen.getByText(/4 people · 60 sq ft/)).toBeInTheDocument();
     // No sign-in offered while accounts are not set up
     expect(screen.queryByRole("button", { name: /sign in with google/i })).not.toBeInTheDocument();

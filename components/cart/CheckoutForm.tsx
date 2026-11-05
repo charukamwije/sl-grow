@@ -23,6 +23,7 @@ import { btnPrimary, card, subheading } from "../ui/styles";
 
 const ERROR_KEYS: Record<CheckoutError, StringKey> = {
   nameAndPhone: "err.nameAndPhone",
+  phone: "err.phone",
   address: "err.address",
   emptyCart: "err.emptyCart",
 };
@@ -161,8 +162,9 @@ function MemberCheckout() {
         value={details.phone}
         onChange={(value) => update("phone", value)}
         autoComplete="tel"
-        maxLength={200}
+        maxLength={20}
         required
+        hint={t("checkout.phoneHint")}
       />
 
       {details.method === "delivery" && (

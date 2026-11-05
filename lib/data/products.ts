@@ -19,6 +19,17 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+/** English names, for the admin console (the shop uses `cat.*` strings) */
+export const CATEGORY_LABELS: Record<Category, string> = {
+  seedlings: "Seedlings",
+  seeds: "Seed packets",
+  containers: "Containers",
+  supports: "Supports",
+  fertilizers: "Fertilizers",
+  protection: "Protection",
+  tools: "Tools",
+};
+
 // Translated in lib/i18n/strings.ts under `unit.*`
 export const UNITS = ["each", "packet", "bag", "kg", "bottle", "pack", "block"] as const;
 

@@ -4,6 +4,7 @@
  * cash on delivery (or at pickup) or by bank transfer.
  */
 import type { Cart } from "../products";
+import { normalizeMobile } from "./phone";
 
 export type CheckoutMethod = "pickup" | "delivery";
 
@@ -20,7 +21,7 @@ export type CheckoutDetails = {
   notes: string;
 };
 
-export type CheckoutError = "nameAndPhone" | "address" | "emptyCart";
+export type CheckoutError = "nameAndPhone" | "phone" | "address" | "emptyCart";
 
 /** FR-O-01, FR-O-02 */
 export function validateCheckout(
@@ -29,6 +30,7 @@ export function validateCheckout(
 ): CheckoutError | null {
   if (Object.keys(cart).length === 0) return "emptyCart";
   if (!details.name.trim() || !details.phone.trim()) return "nameAndPhone";
+  if (!normalizeMobile(details.phone)) return "phone";
   if (details.method === "delivery" && !details.address.trim()) return "address";
   return null;
 }
@@ -58,11 +60,18 @@ export function isPaymentMethod(value: unknown): value is PaymentMethod {
 /** English labels, for the admin console */
 export const STATUS_LABELS: Record<OrderStatus, string> = {
   created: "Created",
-  received: "Received",
+  received: "Confirmed",
   out_for_delivery: "Out for delivery",
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
+/** A pickup order is "ready for pickup" where a delivery is "out for delivery" */
+export function statusLabel(status: OrderStatus, method: CheckoutMethod): string {
+  return status === "out_for_delivery" && method === "pickup"
+    ? "Ready for pickup"
+    : STATUS_LABELS[status];
+}
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",

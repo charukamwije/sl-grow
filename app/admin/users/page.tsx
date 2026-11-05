@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import RoleSelect from "@/components/admin/RoleSelect";
+import LocalTime from "@/components/ui/LocalTime";
 import { btnSecondary, card, heading, muted } from "@/components/ui/styles";
 import { requireRole } from "@/lib/supabase/admin-auth";
 import { listUsers } from "@/lib/supabase/users";
 
 export const metadata: Metadata = { title: "Users" };
 
-// ISO timestamps are UTC; slicing keeps server and client output identical
-function formatDate(value: string | null): string {
-  return value ? `${value.slice(0, 16).replace("T", " ")} UTC` : "Never";
+function When({ value }: { value: string | null }) {
+  return value ? <LocalTime value={value} /> : <>Never</>;
 }
 
 export default async function AdminUsersPage({
@@ -54,8 +54,8 @@ export default async function AdminUsersPage({
                       <p className="text-xs text-gray-500">{user.email}</p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(user.createdAt)}</td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(user.lastSignInAt)}</td>
+                  <td className="px-4 py-3 text-gray-600"><When value={user.createdAt} /></td>
+                  <td className="px-4 py-3 text-gray-600"><When value={user.lastSignInAt} /></td>
                   <td className="px-4 py-3">
                     <RoleSelect
                       uid={user.uid}

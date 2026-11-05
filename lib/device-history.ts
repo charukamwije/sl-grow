@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { PlannerInputs } from "./planner/calc";
 
 /**
  * Orders and plans kept on this device, so guests can look back at what they
@@ -22,6 +23,8 @@ export type DevicePlan = {
   people: number;
   space: number;
   total: number;
+  /** What was entered, to show or edit the plan again (missing on older plans) */
+  inputs?: PlannerInputs;
 };
 
 export const DEVICE_ORDERS_KEY = "aswedduma_orders";
@@ -32,6 +35,9 @@ const EMPTY: never[] = [];
 export type Store<T> = {
   get(): T[];
   add(entry: T): void;
+  /** Replaces the entries that match, keeping their place */
+  update(match: (entry: T) => boolean, next: T): void;
+  remove(match: (entry: T) => boolean): void;
   subscribe(listener: () => void): () => void;
 };
 
@@ -64,20 +70,29 @@ export function createStore<T>(key: string): Store<T> {
     return memory;
   };
 
+  const save = (next: T[]) => {
+    memory = next;
+    try {
+      const raw = JSON.stringify(next);
+      localStorage.setItem(key, raw);
+      lastRaw = raw;
+    } catch {
+      // Private mode or full storage: kept for this visit only
+    }
+    notify();
+  };
+
   return {
     get,
     // Newest first, and only the most recent few, so storage stays small
     add(entry) {
-      const next = [entry, ...get()].slice(0, MAX_ENTRIES);
-      memory = next;
-      try {
-        const raw = JSON.stringify(next);
-        localStorage.setItem(key, raw);
-        lastRaw = raw;
-      } catch {
-        // Private mode or full storage: kept for this visit only
-      }
-      notify();
+      save([entry, ...get()].slice(0, MAX_ENTRIES));
+    },
+    update(match, next) {
+      save(get().map((entry) => (match(entry) ? next : entry)));
+    },
+    remove(match) {
+      save(get().filter((entry) => !match(entry)));
     },
     subscribe(listener) {
       if (listeners.size === 0) window.addEventListener("storage", onStorage);

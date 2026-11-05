@@ -142,6 +142,40 @@ export async function insertPlan(uid: string, plan: NewPlan): Promise<string> {
   return row.id;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ids come from URLs; anything else would be a Postgres error, not a miss */
+export function isUuid(value: string): boolean {
+  return UUID.test(value);
+}
+
+/** Replaces one of the customer's own plans; false when they have none by that id */
+export async function updatePlan(uid: string, id: string, plan: NewPlan): Promise<boolean> {
+  if (!isUuid(id)) return false;
+
+  const rows = unwrap(
+    await adminDb
+      .from("plans")
+      .update({ ...plan, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", uid)
+      .select("id")
+  );
+
+  return rows.length > 0;
+}
+
+/** Deletes one of the customer's own plans; false when they have none by that id */
+export async function deletePlan(uid: string, id: string): Promise<boolean> {
+  if (!isUuid(id)) return false;
+
+  const rows = unwrap(
+    await adminDb.from("plans").delete().eq("id", id).eq("user_id", uid).select("id")
+  );
+
+  return rows.length > 0;
+}
+
 // An allow-list, not a deny-list: a missing table (`42P01`, `PGRST205`), a
 // wrong secret key (401) and anything unrecognised are configuration or
 // programming faults that have to surface, not be retried or masked as "try

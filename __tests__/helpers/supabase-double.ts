@@ -43,6 +43,8 @@ function createSupabaseDouble() {
     }),
     insertOrder: vi.fn(),
     insertPlan: vi.fn(),
+    updatePlan: vi.fn(),
+    deletePlan: vi.fn(),
   };
 
   const admin = {
@@ -116,6 +118,8 @@ function createSupabaseDouble() {
       for (const spy of Object.values(auth)) spy.mockReset();
       store.insertOrder.mockReset().mockResolvedValue({ id: "new-order", ref: "ASW-NEW234" });
       store.insertPlan.mockReset().mockResolvedValue("new-plan");
+      store.updatePlan.mockReset().mockResolvedValue(true);
+      store.deletePlan.mockReset().mockResolvedValue(true);
       admin.auth.admin.deleteUser.mockReset().mockResolvedValue({ data: {}, error: null });
       auth.signOut.mockResolvedValue({ error: null });
       this.givenSignedOut();

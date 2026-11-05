@@ -58,7 +58,7 @@ describe("the customer's order page", () => {
     expect(screen.getByRole("heading", { name: "ASW-7K3P9Q" })).toBeInTheDocument();
     const steps = screen.getAllByRole("listitem").filter((item) => /✓/.test(item.textContent ?? ""));
     expect(steps.map((step) => step.textContent)).toEqual(
-      expect.arrayContaining([expect.stringContaining("Order placed"), expect.stringContaining("Received by the shop")])
+      expect.arrayContaining([expect.stringContaining("Order placed"), expect.stringContaining("Order confirmed")])
     );
     expect(screen.getByText(/Cash on delivery · Delivery/)).toBeInTheDocument();
     expect(screen.queryByText("Pay by bank transfer")).not.toBeInTheDocument();

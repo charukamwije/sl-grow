@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LocalTime from "@/components/ui/LocalTime";
+import { formatMobile } from "@/lib/order/phone";
 import { btnPrimary, btnSecondary, card, heading, input, label, muted } from "@/components/ui/styles";
 import { listAdminOrders, ORDERS_PER_PAGE } from "@/lib/admin-orders";
-import { ORDER_STATUSES, STATUS_LABELS } from "@/lib/order/checkout";
+import { ORDER_STATUSES, STATUS_LABELS, statusLabel } from "@/lib/order/checkout";
 import { orderFiltersQuery, parseOrderFilters } from "@/lib/order-filters";
 import { formatLKR } from "@/lib/products";
 import { requireRole } from "@/lib/supabase/admin-auth";
 
 export const metadata: Metadata = { title: "Orders" };
 
-// ISO timestamps are UTC; slicing keeps server and client output identical
-function formatDate(value: string): string {
-  return `${value.slice(0, 16).replace("T", " ")} UTC`;
-}
+// The filter lists one status for both methods, so it names both
+const FILTER_LABELS = { ...STATUS_LABELS, out_for_delivery: "Out for delivery / Ready for pickup" };
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -73,7 +73,7 @@ export default async function AdminOrdersPage({
             <option value="">Any status</option>
             {ORDER_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                {FILTER_LABELS[status]}
               </option>
             ))}
           </select>
@@ -135,11 +135,11 @@ export default async function AdminOrdersPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
+                    <LocalTime value={order.createdAt} />
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">{order.name}</p>
-                    <p className="text-xs text-gray-500">{order.phone}</p>
+                    <p className="text-xs text-gray-500">{formatMobile(order.phone)}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -153,7 +153,7 @@ export default async function AdminOrdersPage({
                               : "bg-amber-50 text-amber-800"
                       }`}
                     >
-                      {STATUS_LABELS[order.status]}
+                      {statusLabel(order.status, order.method)}
                     </span>
                     <p className="mt-1 text-xs capitalize text-gray-500">{order.method}</p>
                   </td>

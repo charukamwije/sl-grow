@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import CertificationStatusControls from "@/components/admin/CertificationStatusControls";
+import LocalTime from "@/components/ui/LocalTime";
 import { btnGhost, card, heading, muted, subheading } from "@/components/ui/styles";
 import { certificateState, CERT_STATUS_LABELS } from "@/lib/certification/status";
 import { getAdminApplication } from "@/lib/certifications-server";
@@ -9,8 +10,6 @@ import { getTrack } from "@/lib/data/certifications";
 import { requireRole } from "@/lib/supabase/admin-auth";
 
 export const metadata: Metadata = { title: "Application" };
-
-const formatDate = (value: string) => `${value.slice(0, 16).replace("T", " ")} UTC`;
 
 export default async function AdminCertificationPage({
   params,
@@ -42,8 +41,13 @@ export default async function AdminCertificationPage({
       <div>
         <h1 className={`${heading} font-mono`}>{application.ref}</h1>
         <p className={muted}>
-          Applied {formatDate(application.createdAt)} · {CERT_STATUS_LABELS[application.status]}
-          {application.statusUpdatedAt ? `, changed ${formatDate(application.statusUpdatedAt)}` : ""}
+          Applied <LocalTime value={application.createdAt} /> ·{" "}
+          {CERT_STATUS_LABELS[application.status]}
+          {application.statusUpdatedAt && (
+            <>
+              , changed <LocalTime value={application.statusUpdatedAt} />
+            </>
+          )}
         </p>
       </div>
 
@@ -75,7 +79,11 @@ export default async function AdminCertificationPage({
                 : "No longer valid (status is not Certified)"}
           </p>
           <p className={muted}>
-            {application.certifiedAt ? `Issued ${formatDate(application.certifiedAt)}` : ""}
+            {application.certifiedAt && (
+              <>
+                Issued <LocalTime value={application.certifiedAt} />
+              </>
+            )}
             {application.expiresAt ? ` · Valid until ${application.expiresAt.slice(0, 10)}` : ""}
           </p>
         </section>

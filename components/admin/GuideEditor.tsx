@@ -23,7 +23,7 @@ import {
   subheading,
 } from "@/components/ui/styles";
 import { useCatalog } from "@/contexts/catalog-context";
-import { CATEGORIES, type Category } from "@/lib/data/products";
+import { CATEGORIES, CATEGORY_LABELS, type Category } from "@/lib/data/products";
 import type { Guide, GuideKind, GuideStep } from "@/lib/data/guides";
 import { MAX_STEPS, type GuideFormErrors, type GuideInput } from "@/lib/guide-form";
 import { isBuiltInGuide } from "@/lib/guides";
@@ -398,7 +398,7 @@ export default function GuideEditor({ guide }: GuideEditorProps) {
             products.length === 0 ? null : (
               <fieldset key={category}>
                 <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  {category}
+                  {CATEGORY_LABELS[category]}
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {products.map((product) => (

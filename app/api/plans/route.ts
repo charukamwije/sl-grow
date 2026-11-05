@@ -1,47 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog-server";
-import { VEGETABLES } from "@/lib/data/vegetables";
 import { resolveUid } from "@/lib/supabase/route-auth";
 import { insertPlan } from "@/lib/supabase/store";
-import {
-  computePlan,
-  toAmount,
-  type PlannerInputs,
-  type VegInput,
-} from "@/lib/planner/calc";
+import { hasSelection, planRecord, readInputs } from "@/lib/planner/inputs";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
-
-const MAX_PEOPLE = 100;
-const MAX_SPACE = 100_000;
-const MAX_VALUE = 1_000_000;
-
-// Only known vegetables, with numbers clamped to sane ranges
-function readInputs(value: unknown): PlannerInputs | null {
-  const raw = value as { people?: unknown; space?: unknown; veg?: unknown } | null;
-  if (!raw || typeof raw.veg !== "object" || raw.veg === null) return null;
-
-  const veg: Record<string, VegInput> = {};
-  for (const { id } of VEGETABLES) {
-    const input = (raw.veg as Record<string, Partial<VegInput> | undefined>)[id];
-    if (!input) continue;
-    veg[id] = {
-      selected: input.selected === true,
-      price: Math.min(toAmount(input.price), MAX_VALUE),
-      gramsPerWeek: Math.min(toAmount(input.gramsPerWeek), MAX_VALUE),
-    };
-  }
-
-  return {
-    people: Math.min(Math.floor(toAmount(raw.people)), MAX_PEOPLE),
-    space: Math.min(toAmount(raw.space), MAX_SPACE),
-    veg,
-  };
-}
 
 /**
  * Save the signed-in customer's planner result (FR-A-08). The plan is
  * recomputed here from the inputs, so the stored totals always match the
- * calculation rather than whatever a client sent. Create only (FR-A-12).
+ * calculation rather than whatever a client sent. Saved plans are updated or
+ * deleted through /api/plans/[id].
  */
 export async function POST(request: NextRequest) {
   const rejected = rejectCrossSiteRequest(request, true);
@@ -59,7 +27,7 @@ export async function POST(request: NextRequest) {
   } | null;
   const inputs = readInputs(body?.inputs);
 
-  if (!inputs || !Object.values(inputs.veg).some((input) => input.selected)) {
+  if (!inputs || !hasSelection(inputs)) {
     return NextResponse.json(
       { success: false, error: "The plan is incomplete." },
       { status: 400 }
@@ -67,18 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const plan = computePlan(inputs, await getCatalog());
-    const id = await insertPlan(uid, {
-      people: inputs.people,
-      space: inputs.space,
-      vegetables: inputs.veg,
-      plants: Object.fromEntries(
-        plan.rows.map((row) => [row.veg.id, row.plants])
-      ),
-      shopping: plan.shopping,
-      total: plan.shoppingTotal,
-      yearly_savings: plan.savings.yearly,
-    });
+    const id = await insertPlan(uid, planRecord(inputs, await getCatalog()));
 
     return NextResponse.json({ success: true, id });
   } catch (error) {

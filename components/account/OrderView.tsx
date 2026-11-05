@@ -10,6 +10,7 @@ import type { BankDetails } from "@/lib/shop-settings";
 import { acceptsReceipt, ORDER_PROGRESS } from "@/lib/order/checkout";
 import { formatLKR } from "@/lib/products";
 import type { OwnOrder } from "@/lib/supabase/account";
+import LocalTime from "../ui/LocalTime";
 import { btnGhost, btnSmall, card, heading, muted, subheading } from "../ui/styles";
 import { PaidBadge, StatusBadge, statusKey } from "./OrderBadges";
 
@@ -20,11 +21,6 @@ type OrderViewProps = {
   /** Just placed: thank the customer */
   placed: boolean;
 };
-
-// ISO timestamps are UTC; slicing keeps server and client output identical
-function formatDate(value: string): string {
-  return `${value.slice(0, 16).replace("T", " ")} UTC`;
-}
 
 function Timeline({ order }: { order: OwnOrder }) {
   const { t } = useLanguage();
@@ -163,7 +159,7 @@ export default function OrderView({ order, bank, placed }: OrderViewProps) {
 
   return (
     <div className="space-y-4 pb-8">
-      <Link href="/account" className={btnGhost}>
+      <Link href="/account/orders" className={btnGhost}>
         ← {t("orderPage.back")}
       </Link>
 
@@ -188,7 +184,7 @@ export default function OrderView({ order, bank, placed }: OrderViewProps) {
           </button>
         </div>
         <p className={muted}>
-          <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
+          <LocalTime value={order.createdAt} />
         </p>
         <div className="flex flex-wrap gap-1.5 pt-1">
           <StatusBadge status={order.status} method={order.method} />

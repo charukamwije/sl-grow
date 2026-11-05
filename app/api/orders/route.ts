@@ -7,6 +7,7 @@ import {
   type CheckoutDetails,
 } from "@/lib/order/checkout";
 import { getCatalog } from "@/lib/catalog-server";
+import { normalizeMobile } from "@/lib/order/phone";
 import { productCode } from "@/lib/products";
 import { rejectCrossSiteRequest } from "@/lib/utils/request-origin";
 
@@ -22,7 +23,8 @@ function text(value: unknown, max: number): string | null {
 function readDetails(value: unknown): CheckoutDetails | null {
   const raw = (value ?? {}) as Record<string, unknown>;
   const name = text(raw.name, MAX_FIELD);
-  const phone = text(raw.phone, MAX_FIELD);
+  // Saved as 947XXXXXXXX, ready for a WhatsApp or SMS link
+  const phone = typeof raw.phone === "string" ? normalizeMobile(raw.phone) : null;
   const address = text(raw.address ?? "", MAX_LONG_FIELD);
   const notes = text(raw.notes ?? "", MAX_LONG_FIELD);
   const method = raw.method;

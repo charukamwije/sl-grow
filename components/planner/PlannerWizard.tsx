@@ -23,7 +23,7 @@ import {
   heading,
   muted,
 } from "../ui/styles";
-import PlanResults from "./PlanResults";
+import PlanResults, { type EditingPlan } from "./PlanResults";
 
 // Form fields stay strings while typing, so clearing a box does not snap it
 // back to 0; `toAmount` turns empty or invalid text into 0 (FR-P-07)
@@ -60,6 +60,27 @@ function initialForm(): FormState {
   };
 }
 
+// A saved plan back into the form; vegetables added since start unticked
+function toForm(inputs: PlannerInputs): FormState {
+  return {
+    people: String(inputs.people),
+    space: String(inputs.space),
+    veg: Object.fromEntries(
+      VEGETABLES.map((veg) => {
+        const saved = inputs.veg[veg.id];
+        return [
+          veg.id,
+          {
+            selected: saved?.selected ?? false,
+            price: String(saved?.price ?? veg.price),
+            grams: String(saved?.gramsPerWeek ?? veg.gramsPerWeek),
+          },
+        ];
+      })
+    ),
+  };
+}
+
 function toInputs(form: FormState): PlannerInputs {
   return {
     people: Math.max(1, Math.floor(toAmount(form.people))),
@@ -78,18 +99,27 @@ function toInputs(form: FormState): PlannerInputs {
 }
 
 
+type PlannerWizardProps = {
+  /** A saved plan's inputs, to change it */
+  initial?: PlannerInputs;
+  /** The saved plan being changed, which the last step can update */
+  editing?: EditingPlan;
+};
+
 /**
  * The planner, one step at a time (SRS 3.1): home, vegetables, amounts and
  * prices, then the plan. Next is blocked while the space is 0 or no
  * vegetable is ticked.
  */
-export default function PlannerWizard() {
+export default function PlannerWizard({ initial, editing }: PlannerWizardProps = {}) {
   const { t, l } = useLanguage();
   const { addErrorNotification } = useNotification();
   const catalog = useCatalog();
   const vegIcon = (id: string) => catalog.seedlingFor(id)?.icon ?? "🌱";
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>(() =>
+    initial ? toForm(initial) : initialForm()
+  );
 
   const inputs = useMemo(() => toInputs(form), [form]);
   const plan = useMemo(
@@ -137,6 +167,11 @@ export default function PlannerWizard() {
         <p className={eyebrow}>🌱 {t("tagline")}</p>
         <h1 className={heading}>{t("planner.title")}</h1>
         <p className={`${muted} max-w-2xl`}>{t("planner.intro")}</p>
+        {editing && (
+          <p role="status" className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">
+            ✏️ {t("plan.editing")}
+          </p>
+        )}
       </header>
 
       <StepIndicator
@@ -343,7 +378,7 @@ export default function PlannerWizard() {
         </section>
       )}
 
-      {step === 3 && plan && <PlanResults plan={plan} inputs={inputs} />}
+      {step === 3 && plan && <PlanResults plan={plan} inputs={inputs} editing={editing} />}
 
       {/* Sticky action bar, within thumb reach on a phone */}
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-black/5 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:mx-0 sm:rounded-3xl sm:border sm:shadow-lg">

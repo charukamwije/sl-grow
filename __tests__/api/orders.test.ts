@@ -104,7 +104,8 @@ describe("POST /api/orders", () => {
       "user-1",
       expect.objectContaining({
         name: "Nimal",
-        phone: "0771234567",
+        // Saved in international form, ready for WhatsApp
+        phone: "94771234567",
         method: "pickup",
         payment_method: "cod",
         items: [
@@ -164,6 +165,17 @@ describe("POST /api/orders", () => {
 
     const response = await POST(
       orderRequest({ details: { ...details, name: " " }, cart: { s_tomato: 1 } })
+    );
+
+    expect(response.status).toBe(400);
+    expect(supabaseDouble.store.insertOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuses a phone that is not a Sri Lankan mobile number", async () => {
+    givenSession("user-1");
+
+    const response = await POST(
+      orderRequest({ details: { ...details, phone: "011 234 5678" }, cart: { s_tomato: 1 } })
     );
 
     expect(response.status).toBe(400);

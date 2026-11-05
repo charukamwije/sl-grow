@@ -4,6 +4,7 @@ import {
   isOrderStatus,
   isPaymentMethod,
   ORDER_PROGRESS,
+  statusLabel,
   validateCheckout,
   type CheckoutDetails,
 } from "@/lib/order/checkout";
@@ -24,6 +25,12 @@ describe("validateCheckout", () => {
   it("requires a name and phone (FR-O-01, AC-05)", () => {
     expect(validateCheckout({ ...details, name: "" }, cart)).toBe("nameAndPhone");
     expect(validateCheckout({ ...details, phone: "  " }, cart)).toBe("nameAndPhone");
+  });
+
+  it("requires a Sri Lankan mobile number", () => {
+    expect(validateCheckout({ ...details, phone: "12345" }, cart)).toBe("phone");
+    expect(validateCheckout({ ...details, phone: "0112345678" }, cart)).toBe("phone");
+    expect(validateCheckout({ ...details, phone: "+94 77 123 4567" }, cart)).toBeNull();
   });
 
   it("requires an address for delivery only (FR-O-02, AC-06)", () => {
@@ -50,6 +57,12 @@ describe("order statuses and payment methods", () => {
     expect(isPaymentMethod("cod")).toBe(true);
     expect(isPaymentMethod("bank_transfer")).toBe(true);
     expect(isPaymentMethod("card")).toBe(false);
+  });
+
+  it("calls a pickup order ready for pickup where a delivery is out for delivery", () => {
+    expect(statusLabel("out_for_delivery", "pickup")).toBe("Ready for pickup");
+    expect(statusLabel("out_for_delivery", "delivery")).toBe("Out for delivery");
+    expect(statusLabel("received", "pickup")).toBe("Confirmed");
   });
 
   it("shows cancelled as a banner, not a step", () => {

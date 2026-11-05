@@ -5,14 +5,20 @@ import { setOrderPaid, setOrderStatus } from "@/app/admin/orders/actions";
 import { label } from "@/components/ui/styles";
 import {
   ORDER_STATUSES,
-  STATUS_LABELS,
+  statusLabel,
+  type CheckoutMethod,
   type OrderStatus,
 } from "@/lib/order/checkout";
+import { isNotifyStatus } from "@/lib/order/whatsapp";
+import NotifyCustomer, { type NotifyLinks } from "./NotifyCustomer";
 
 type OrderStatusControlsProps = {
   id: string;
   status: OrderStatus;
+  method: CheckoutMethod;
   paid: boolean;
+  /** Messages for the customer, offered for the status the order is in */
+  notify: NotifyLinks;
 };
 
 const select =
@@ -24,7 +30,13 @@ const CONFIRM: Partial<Record<OrderStatus, string>> = {
   cancelled: "Cancel this order? The customer sees it as cancelled.",
 };
 
-export default function OrderStatusControls({ id, status, paid }: OrderStatusControlsProps) {
+export default function OrderStatusControls({
+  id,
+  status,
+  method,
+  paid,
+  notify,
+}: OrderStatusControlsProps) {
   const [current, setCurrent] = useState(status);
   const [isPaid, setIsPaid] = useState(paid);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +54,7 @@ export default function OrderStatusControls({ id, status, paid }: OrderStatusCon
     setSaved(null);
     startTransition(async () => {
       const result = await setOrderStatus(id, next);
-      if (result.ok) setSaved(`Status set to ${STATUS_LABELS[next]}.`);
+      if (result.ok) setSaved(`Status set to ${statusLabel(next, method)}.`);
       else {
         setCurrent(previous);
         setError(result.error);
@@ -81,7 +93,7 @@ export default function OrderStatusControls({ id, status, paid }: OrderStatusCon
           >
             {ORDER_STATUSES.map((option) => (
               <option key={option} value={option}>
-                {STATUS_LABELS[option]}
+                {statusLabel(option, method)}
               </option>
             ))}
           </select>
@@ -111,6 +123,9 @@ export default function OrderStatusControls({ id, status, paid }: OrderStatusCon
         <p role="alert" className="text-sm text-red-700">
           {error}
         </p>
+      )}
+      {isNotifyStatus(current) && !pending && (
+        <NotifyCustomer links={notify[current]} statusName={statusLabel(current, method)} />
       )}
     </div>
   );

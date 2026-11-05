@@ -27,6 +27,19 @@ vi.mock("next/headers", async () => {
 });
 
 const { POST } = await import("@/app/api/plans/route");
+const { PUT, DELETE } = await import("@/app/api/plans/[id]/route");
+
+const PLAN_ID = "3f2b8c1e-4a5d-4e6f-8a9b-0c1d2e3f4a5b";
+
+function planIdRequest(method: "PUT" | "DELETE", body?: unknown) {
+  return new NextRequest(`https://example.com/api/plans/${PLAN_ID}`, {
+    method,
+    headers: DEFAULT_HEADERS,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+const context = { params: Promise.resolve({ id: PLAN_ID }) };
 
 const DEFAULT_HEADERS = {
   host: "example.com",
@@ -98,5 +111,75 @@ describe("POST /api/plans", () => {
     const response = await POST(planRequest({ inputs: "nope" }));
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe("PUT /api/plans/[id]", () => {
+  it("requires sign-in", async () => {
+    const response = await PUT(planIdRequest("PUT", { inputs: defaultInputs() }), context);
+
+    expect(response.status).toBe(401);
+    expect(supabaseDouble.store.updatePlan).not.toHaveBeenCalled();
+  });
+
+  it("replaces the plan, recomputed, under the session's uid", async () => {
+    givenSession("user-1");
+    const inputs = { ...defaultInputs(), people: 2 };
+
+    const response = await PUT(planIdRequest("PUT", { inputs, total: 1 }), context);
+
+    expect(response.status).toBe(200);
+    expect(supabaseDouble.store.updatePlan).toHaveBeenCalledWith(
+      "user-1",
+      PLAN_ID,
+      expect.objectContaining({ people: 2, total: computePlan(inputs, STATIC_CATALOG).shoppingTotal })
+    );
+  });
+
+  it("answers 404 for a plan that is not the customer's (FR-A-11)", async () => {
+    givenSession("user-1");
+    supabaseDouble.store.updatePlan.mockResolvedValue(false);
+
+    const response = await PUT(planIdRequest("PUT", { inputs: defaultInputs() }), context);
+
+    expect(response.status).toBe(404);
+  });
+
+  it("refuses a plan with no vegetable selected", async () => {
+    givenSession("user-1");
+    const inputs = defaultInputs();
+    for (const veg of Object.values(inputs.veg)) veg.selected = false;
+
+    const response = await PUT(planIdRequest("PUT", { inputs }), context);
+
+    expect(response.status).toBe(400);
+    expect(supabaseDouble.store.updatePlan).not.toHaveBeenCalled();
+  });
+});
+
+describe("DELETE /api/plans/[id]", () => {
+  it("requires sign-in", async () => {
+    const response = await DELETE(planIdRequest("DELETE"), context);
+
+    expect(response.status).toBe(401);
+    expect(supabaseDouble.store.deletePlan).not.toHaveBeenCalled();
+  });
+
+  it("deletes the customer's own plan", async () => {
+    givenSession("user-1");
+
+    const response = await DELETE(planIdRequest("DELETE"), context);
+
+    expect(response.status).toBe(200);
+    expect(supabaseDouble.store.deletePlan).toHaveBeenCalledWith("user-1", PLAN_ID);
+  });
+
+  it("answers 404 for a plan that is not the customer's", async () => {
+    givenSession("user-1");
+    supabaseDouble.store.deletePlan.mockResolvedValue(false);
+
+    const response = await DELETE(planIdRequest("DELETE"), context);
+
+    expect(response.status).toBe(404);
   });
 });

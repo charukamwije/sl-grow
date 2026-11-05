@@ -11,7 +11,9 @@ import AccountDeleteButton from "../auth/AccountDeleteButton";
 import AuthButtons from "../auth/AuthButtons";
 import ApplicationList from "../join/ApplicationList";
 import GuestHistory from "./GuestHistory";
-import { PaidBadge, StatusBadge } from "./OrderBadges";
+import OrderCard from "./OrderCard";
+import PlanLinks from "./PlanLinks";
+import LocalTime from "../ui/LocalTime";
 import UserIcon from "../icons/UserIcon";
 import AuthModal from "../modals/AuthModal";
 import { btnPrimary, card, heading, muted, subheading } from "../ui/styles";
@@ -28,12 +30,8 @@ export type AccountState =
       applications: OwnApplication[];
     };
 
-// `createdAt` is an ISO string (always UTC). Slicing it instead of calling
-// `toLocaleString()` keeps the server-rendered label identical to the
-// client's, whatever timezone either side runs in.
-function formatDate(createdAt: string): string {
-  return `${createdAt.slice(0, 16).replace("T", " ")} UTC`;
-}
+// The account page shows only the latest few; the rest are on /account/orders
+const RECENT_ORDERS = 3;
 
 type AccountViewProps = {
   state: AccountState;
@@ -137,45 +135,21 @@ export default function AccountView({
             {state.orders.length === 0 ? (
               <p className={muted}>{t("account.noOrders")}</p>
             ) : (
-              <ul className="space-y-3">
-                {state.orders.map((order) => (
-                  <li key={order.id} className="rounded-2xl border border-black/5 p-3">
-                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                      <StatusBadge status={order.status} method={order.method} />
-                      {order.status !== "cancelled" && <PaidBadge paid={order.paid} />}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="flex flex-wrap items-center gap-2">
-                        {order.ref && (
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider text-emerald-800">
-                            {order.ref}
-                          </span>
-                        )}
-                        <time dateTime={order.createdAt} className="text-gray-600">
-                          {formatDate(order.createdAt)}
-                        </time>
-                      </span>
-                      <span className="font-bold text-gray-900">
-                        {formatLKR(order.total)}
-                      </span>
-                    </div>
-                    <ul className="mt-2 text-sm text-gray-800">
-                      {order.items.map((item) => (
-                        <li key={item.code}>
-                          <code className="text-xs">{item.code}</code> {item.name} ×{" "}
-                          {item.qty} = {formatLKR(item.lineTotal)}
-                        </li>
-                      ))}
-                    </ul>
-                    <Link
-                      href={`/account/orders/${order.id}`}
-                      className="mt-2 inline-block text-sm font-medium text-emerald-700 hover:underline"
-                    >
-                      {t("account.viewOrder")} →
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="space-y-3">
+                  {state.orders.slice(0, RECENT_ORDERS).map((order) => (
+                    <li key={order.id}>
+                      <OrderCard order={order} />
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/account/orders"
+                  className="mt-3 inline-block text-sm font-medium text-emerald-700 hover:underline"
+                >
+                  {t("account.allOrders")} ({state.orders.length}) →
+                </Link>
+              </>
             )}
           </section>
 
@@ -203,18 +177,22 @@ export default function AccountView({
                 {state.plans.map((plan) => (
                   <li
                     key={plan.id}
-                    className="flex flex-wrap justify-between gap-2 rounded-2xl border border-black/5 p-3 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-black/5 p-3 text-sm"
                   >
-                    <time dateTime={plan.createdAt} className="text-gray-600">
-                      {formatDate(plan.createdAt)}
-                    </time>
-                    <span className="text-gray-900">
-                      {t("account.planLine", {
-                        people: plan.people,
-                        space: formatNumber(plan.space),
-                        total: formatLKR(plan.total),
-                      })}
+                    <span className="space-y-0.5">
+                      <span className="block text-gray-900">
+                        {t("account.planLine", {
+                          people: plan.people,
+                          space: formatNumber(plan.space),
+                          total: formatLKR(plan.total),
+                        })}
+                      </span>
+                      <LocalTime value={plan.createdAt} className="block text-xs text-gray-500" />
                     </span>
+                    <PlanLinks
+                      view={`/account/plans/${plan.id}`}
+                      edit={`/planner?plan=${plan.id}`}
+                    />
                   </li>
                 ))}
               </ul>

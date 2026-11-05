@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useCatalog } from "@/contexts/catalog-context";
 import { useCart } from "@/contexts/cart-context";
@@ -15,15 +15,21 @@ import ProductTable from "../shop/ProductTable";
 import Loading from "../icons/Loading";
 import { btnPrimary, btnSecondary, card, muted, subheading } from "../ui/styles";
 
+/** A saved plan open in the planner: in the account, or on this device */
+export type EditingPlan = { kind: "account" | "device"; id: string };
+
 type PlanResultsProps = {
   plan: PlanResult;
   inputs: PlannerInputs;
+  editing?: EditingPlan;
+  /** In place of the save buttons, for a saved plan shown on its own page */
+  actions?: ReactNode;
 };
 
 // Cut-and-come-again crops have many cycles a year (SRS 1.3)
 const CUT_AGAIN_CYCLES = 6;
 
-export default function PlanResults({ plan, inputs }: PlanResultsProps) {
+export default function PlanResults({ plan, inputs, editing, actions }: PlanResultsProps) {
   const router = useRouter();
   const { t, l } = useLanguage();
   const { addMany } = useCart();
@@ -58,6 +64,7 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
         people: inputs.people,
         space: inputs.space,
         total: plan.shoppingTotal,
+        inputs,
       });
       addSuccessNotification(t("planSavedDevice"));
       return;
@@ -78,6 +85,44 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
       console.error("Plan save error:", error);
       addErrorNotification(t("planSaveFailed"));
     } finally {
+      setSaving(false);
+    }
+  };
+
+  // The saved plan being edited takes the new inputs, then shows itself
+  const updatePlan = async () => {
+    if (!editing) return;
+
+    if (editing.kind === "device") {
+      const saved = devicePlans.get().find((entry) => entry.id === editing.id);
+      devicePlans.update((entry) => entry.id === editing.id, {
+        id: editing.id,
+        createdAt: saved?.createdAt ?? new Date().toISOString(),
+        people: inputs.people,
+        space: inputs.space,
+        total: plan.shoppingTotal,
+        inputs,
+      });
+      addSuccessNotification(t("plan.updated"));
+      router.push(`/account/plans/device/${editing.id}`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/plans/${editing.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inputs }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error);
+      addSuccessNotification(t("plan.updated"));
+      router.push(`/account/plans/${editing.id}`);
+      router.refresh();
+    } catch (error) {
+      console.error("Plan update error:", error);
+      addErrorNotification(t("planSaveFailed"));
       setSaving(false);
     }
   };
@@ -223,15 +268,38 @@ export default function PlanResults({ plan, inputs }: PlanResultsProps) {
             <button type="button" className={btnPrimary} onClick={addPlanToCart}>
               🛒 {t("addPlanToCart")}
             </button>
-            <button
-              type="button"
-              className={btnSecondary}
-              onClick={savePlan}
-              disabled={saving}
-            >
-              {saving && <Loading size="small" color="green" />}
-              💾 {t("savePlan")}
-            </button>
+            {actions ??
+              (editing ? (
+                <>
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    onClick={updatePlan}
+                    disabled={saving}
+                  >
+                    {saving && <Loading size="small" color="green" />}
+                    💾 {t("plan.update")}
+                  </button>
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    onClick={savePlan}
+                    disabled={saving}
+                  >
+                    {t("plan.saveNew")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={savePlan}
+                  disabled={saving}
+                >
+                  {saving && <Loading size="small" color="green" />}
+                  💾 {t("savePlan")}
+                </button>
+              ))}
           </div>
         </section>
       )}

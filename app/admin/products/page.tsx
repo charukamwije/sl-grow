@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/20/solid";
 import { btnPrimary, card, heading, input, muted } from "@/components/ui/styles";
 import { listAdminProducts } from "@/lib/admin-products";
-import { CATEGORIES } from "@/lib/data/products";
+import { CATEGORIES, CATEGORY_LABELS } from "@/lib/data/products";
 import { formatLKR, productCode } from "@/lib/products";
 import { getProtectedProductIds } from "@/lib/guides-server";
 import { requireRole } from "@/lib/supabase/admin-auth";
@@ -69,7 +69,7 @@ export default async function AdminProductsPage({
           <option value="">All categories</option>
           {CATEGORIES.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {CATEGORY_LABELS[option]}
             </option>
           ))}
         </select>
@@ -110,7 +110,7 @@ export default async function AdminProductsPage({
                     </span>
                   </Link>
                 </td>
-                <td className="px-4 py-3">{product.category}</td>
+                <td className="px-4 py-3">{CATEGORY_LABELS[product.category]}</td>
                 <td className="px-4 py-3 text-right tabular-nums">
                   {formatLKR(product.price)} / {product.unit}
                 </td>
