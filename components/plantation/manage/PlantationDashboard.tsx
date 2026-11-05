@@ -37,9 +37,10 @@ import HarvestChart from "./HarvestChart";
 import RecordForm, { type FormValues } from "./RecordForm";
 
 type ChildKind = Exclude<RecordKind, "plantation">;
-type Tab = "harvests" | "money" | "activities" | "workers";
+type Tab = "summary" | "harvests" | "money" | "activities" | "workers";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: "summary", label: "Summary", icon: "📊" },
   { id: "harvests", label: "Harvests", icon: "🧺" },
   { id: "money", label: "Money", icon: "💰" },
   { id: "activities", label: "Field work", icon: "🛠️" },
@@ -124,7 +125,7 @@ export default function PlantationDashboard({
   const currentYear = new Date().getFullYear();
   const years = useMemo(() => recordYears(records, currentYear), [records, currentYear]);
   const [year, setYear] = useState(currentYear);
-  const [tab, setTab] = useState<Tab>("harvests");
+  const [tab, setTab] = useState<Tab>("summary");
   const [editing, setEditing] = useState<Editing>(null);
   const [settings, setSettings] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -332,48 +333,6 @@ export default function PlantationDashboard({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Year">
-        {years.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={chip(option === year)}
-            aria-pressed={option === year}
-            onClick={() => setYear(option)}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label={`Totals for ${year}`}>
-        {tiles.map((tile) => (
-          <div key={tile.label} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-            <p className="text-xs font-medium text-gray-500">{tile.label}</p>
-            <p className={`mt-1 break-words text-lg font-bold tabular-nums ${tile.tone === "bad" ? "text-red-700" : "text-gray-900"}`}>
-              {tile.value}
-            </p>
-            {tile.note && <p className="mt-0.5 text-xs text-amber-800">{tile.note}</p>}
-          </div>
-        ))}
-      </section>
-
-      <section className={card}>
-        <HarvestChart
-          months={summary.harvestByMonth}
-          year={year}
-          unit={EXPECTED_UNIT[crop]}
-          plantedKnown={Boolean(plantation.planted_on)}
-        />
-        {summary.harvestByProduct.length > 1 && (
-          <p className="mt-3 text-xs text-gray-600">
-            {summary.harvestByProduct
-              .map((entry) => `${choiceLabel(HARVEST_PRODUCTS[crop], entry.product)}: ${formatNumber(entry.kg, 0)} kg`)
-              .join(" · ")}
-          </p>
-        )}
-      </section>
-
       <div role="tablist" aria-label="Records" className="flex gap-2 overflow-x-auto pb-1">
         {TABS.map((entry) => (
           <button
@@ -392,183 +351,233 @@ export default function PlantationDashboard({
         ))}
       </div>
 
-      <section role="tabpanel" className={`${card} space-y-4`}>
-        {tab === "harvests" && (
-          <>
-            {listHead(
-              "harvest",
-              `Harvests in ${year}`,
-              harvests.length > 0
-                ? `${count(harvests.length, "harvest", "harvests")} · ${formatNumber(summary.harvestKg, 1)} kg in all`
-                : null
-            )}
-            {harvests.length === 0 ? (
-              empty(`No harvests recorded in ${year}.`)
-            ) : (
-              <ul className="space-y-2">
-                {harvests.map((row) =>
-                  item("harvest", row, "harvest", {
-                    date: row.harvested_on,
-                    title: choiceLabel(HARVEST_PRODUCTS[crop], row.product),
-                    tags: [row.grade && `Grade ${row.grade}`, row.block && `Block: ${row.block}`].filter(Boolean),
-                    notes: row.notes,
-                    value: `${formatNumber(row.quantity_kg, 1)} kg`,
-                  })
-                )}
-              </ul>
-            )}
-          </>
-        )}
+      {/* The year applies to every tab's figures and lists */}
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Year">
+        <span className="text-sm font-medium text-gray-600">Year:</span>
+        {years.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={chip(option === year)}
+            aria-pressed={option === year}
+            onClick={() => setYear(option)}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
 
-        {tab === "money" && (
-          <>
-            {listHead(
-              "transaction",
-              `Money in ${year}`,
-              `In ${formatLKR(summary.income)} · Out ${formatLKR(summary.expenses)} · Wages ${formatLKR(summary.wages)}`
-            )}
-            <p className="text-xs text-gray-500">
-              Wages are counted from the Workers tab, so record a worker&apos;s pay there rather than here.
-            </p>
-            {transactions.length === 0 ? (
-              empty(`No money recorded in ${year}.`)
-            ) : (
-              <ul className="space-y-2">
-                {transactions.map((row) =>
-                  item("transaction", row, row.kind === "income" ? "income" : "expense", {
-                    date: row.occurred_on,
-                    title: choiceLabel(row.kind === "income" ? INCOME_CATEGORIES[crop] : EXPENSE_CATEGORIES, row.category),
-                    tags: [row.kind === "income" ? "Money in" : "Money out"],
-                    notes: row.description,
-                    value: (
-                      <span className={row.kind === "income" ? "text-emerald-700" : "text-gray-900"}>
-                        {row.kind === "income" ? "+ " : "− "}
-                        {formatLKR(row.amount)}
-                      </span>
-                    ),
-                  })
-                )}
-              </ul>
-            )}
-          </>
-        )}
+      {tab === "summary" && (
+        <div role="tabpanel" className="space-y-4">
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-label={`Totals for ${year}`}>
+            {tiles.map((tile) => (
+              <div key={tile.label} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+                <p className="text-xs font-medium text-gray-500">{tile.label}</p>
+                <p className={`mt-1 break-words text-lg font-bold tabular-nums ${tile.tone === "bad" ? "text-red-700" : "text-gray-900"}`}>
+                  {tile.value}
+                </p>
+                {tile.note && <p className="mt-0.5 text-xs text-amber-800">{tile.note}</p>}
+              </div>
+            ))}
+          </section>
 
-        {tab === "activities" && (
-          <>
-            {listHead(
-              "activity",
-              `Field work in ${year}`,
-              activities.length > 0 ? count(activities.length, "job recorded", "jobs recorded") : null
+          <section className={card}>
+            <HarvestChart
+              months={summary.harvestByMonth}
+              year={year}
+              unit={EXPECTED_UNIT[crop]}
+              plantedKnown={Boolean(plantation.planted_on)}
+            />
+            {summary.harvestByProduct.length > 1 && (
+              <p className="mt-3 text-xs text-gray-600">
+                {summary.harvestByProduct
+                  .map((entry) => `${choiceLabel(HARVEST_PRODUCTS[crop], entry.product)}: ${formatNumber(entry.kg, 0)} kg`)
+                  .join(" · ")}
+              </p>
             )}
-            {activities.length === 0 ? (
-              empty(`No field work recorded in ${year}.`)
-            ) : (
-              <ul className="space-y-2">
-                {activities.map((row) =>
-                  item("activity", row, "activity", {
-                    date: row.done_on,
-                    title: choiceLabel(ACTIVITY_TYPES[crop], row.type),
-                    tags: row.block ? [`Block: ${row.block}`] : [],
-                    notes: row.notes,
-                  })
-                )}
-              </ul>
-            )}
-          </>
-        )}
+          </section>
+        </div>
+      )}
 
-        {tab === "workers" && (
-          <>
-            {listHead(
-              "worker",
-              "Workers",
-              records.workers.length > 0
-                ? `${count(records.workers.filter((worker) => worker.active).length, "working now", "working now")}${
-                    summary.wagesOwed > 0 ? ` · ${formatLKR(summary.wagesOwed)} owed in ${year}` : ""
-                  }`
-                : null
-            )}
-            {records.workers.length === 0 ? (
-              empty("No workers added yet. Add the people who work your land to record their days and wages.")
-            ) : (
-              <ul className="space-y-2">
-                {records.workers.map((row) => {
-                  const due = owed.get(row.id) ?? 0;
-                  return item("worker", row, "worker", {
-                    icon: "👷",
-                    title: <span className={row.active ? "" : "text-gray-500"}>{row.name}</span>,
-                    tags: [`${formatLKR(row.daily_wage)} a day`, row.phone, !row.active && "No longer working"].filter(
-                      (tag): tag is string => Boolean(tag)
-                    ),
-                    value: due > 0 ? <span className="text-amber-800">{formatLKR(due)}</span> : undefined,
-                    valueNote:
-                      due > 0 ? (
-                        <span className="flex flex-col items-end gap-1.5">
-                          <span className="text-xs text-amber-800">owed</span>
-                          <button
-                            type="button"
-                            className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                            disabled={pending}
-                            onClick={() => {
-                              if (window.confirm(`Mark all of ${row.name}'s unpaid days as paid?`)) {
-                                run(() => settleWorker(plantation.id, row.id), `${row.name} marked paid.`);
-                              }
-                            }}
-                          >
-                            Mark paid
-                          </button>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-emerald-700">All paid</span>
-                      ),
-                  });
-                })}
-              </ul>
-            )}
-
-            <div className="space-y-4 border-t border-black/5 pt-5">
+      {tab !== "summary" && (
+        <section role="tabpanel" className={`${card} space-y-4`}>
+          {tab === "harvests" && (
+            <>
               {listHead(
-                "workday",
-                `Work days in ${year}`,
-                workDays.length > 0
-                  ? `${count(workDays.length, "day", "days")} · ${formatLKR(summary.wages)} in wages`
-                  : null,
-                records.workers.length === 0
+                "harvest",
+                `Harvests in ${year}`,
+                harvests.length > 0
+                  ? `${count(harvests.length, "harvest", "harvests")} · ${formatNumber(summary.harvestKg, 1)} kg in all`
+                  : null
               )}
-              {workDays.length === 0 ? (
-                empty(
-                  records.workers.length === 0
-                    ? "Add a worker first, then record their work days here."
-                    : `No work days recorded in ${year}.`
-                )
+              {harvests.length === 0 ? (
+                empty(`No harvests recorded in ${year}.`)
               ) : (
                 <ul className="space-y-2">
-                  {workDays.map((row) =>
-                    item("workday", row, "work day", {
-                      date: row.worked_on,
-                      title: workerName(row.worker_id),
-                      tags: [
-                        choiceLabel(WORK_TASKS[crop], row.task),
-                        row.kg_plucked !== null ? `${formatNumber(row.kg_plucked, 1)} kg` : "",
-                      ].filter(Boolean),
-                      value: formatLKR(row.wage),
-                      valueNote: (
-                        <span
-                          className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            row.paid ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
-                          }`}
-                        >
-                          {row.paid ? "Paid" : "Not paid"}
+                  {harvests.map((row) =>
+                    item("harvest", row, "harvest", {
+                      date: row.harvested_on,
+                      title: choiceLabel(HARVEST_PRODUCTS[crop], row.product),
+                      tags: [row.grade && `Grade ${row.grade}`, row.block && `Block: ${row.block}`].filter(Boolean),
+                      notes: row.notes,
+                      value: `${formatNumber(row.quantity_kg, 1)} kg`,
+                    })
+                  )}
+                </ul>
+              )}
+            </>
+          )}
+
+          {tab === "money" && (
+            <>
+              {listHead(
+                "transaction",
+                `Money in ${year}`,
+                `In ${formatLKR(summary.income)} · Out ${formatLKR(summary.expenses)} · Wages ${formatLKR(summary.wages)}`
+              )}
+              <p className="text-xs text-gray-500">
+                Wages are counted from the Workers tab, so record a worker&apos;s pay there rather than here.
+              </p>
+              {transactions.length === 0 ? (
+                empty(`No money recorded in ${year}.`)
+              ) : (
+                <ul className="space-y-2">
+                  {transactions.map((row) =>
+                    item("transaction", row, row.kind === "income" ? "income" : "expense", {
+                      date: row.occurred_on,
+                      title: choiceLabel(row.kind === "income" ? INCOME_CATEGORIES[crop] : EXPENSE_CATEGORIES, row.category),
+                      tags: [row.kind === "income" ? "Money in" : "Money out"],
+                      notes: row.description,
+                      value: (
+                        <span className={row.kind === "income" ? "text-emerald-700" : "text-gray-900"}>
+                          {row.kind === "income" ? "+ " : "− "}
+                          {formatLKR(row.amount)}
                         </span>
                       ),
                     })
                   )}
                 </ul>
               )}
-            </div>
-          </>
-        )}
-      </section>
+            </>
+          )}
+
+          {tab === "activities" && (
+            <>
+              {listHead(
+                "activity",
+                `Field work in ${year}`,
+                activities.length > 0 ? count(activities.length, "job recorded", "jobs recorded") : null
+              )}
+              {activities.length === 0 ? (
+                empty(`No field work recorded in ${year}.`)
+              ) : (
+                <ul className="space-y-2">
+                  {activities.map((row) =>
+                    item("activity", row, "activity", {
+                      date: row.done_on,
+                      title: choiceLabel(ACTIVITY_TYPES[crop], row.type),
+                      tags: row.block ? [`Block: ${row.block}`] : [],
+                      notes: row.notes,
+                    })
+                  )}
+                </ul>
+              )}
+            </>
+          )}
+
+          {tab === "workers" && (
+            <>
+              {listHead(
+                "worker",
+                "Workers",
+                records.workers.length > 0
+                  ? `${count(records.workers.filter((worker) => worker.active).length, "working now", "working now")}${
+                      summary.wagesOwed > 0 ? ` · ${formatLKR(summary.wagesOwed)} owed in ${year}` : ""
+                    }`
+                  : null
+              )}
+              {records.workers.length === 0 ? (
+                empty("No workers added yet. Add the people who work your land to record their days and wages.")
+              ) : (
+                <ul className="space-y-2">
+                  {records.workers.map((row) => {
+                    const due = owed.get(row.id) ?? 0;
+                    return item("worker", row, "worker", {
+                      icon: "👷",
+                      title: <span className={row.active ? "" : "text-gray-500"}>{row.name}</span>,
+                      tags: [`${formatLKR(row.daily_wage)} a day`, row.phone, !row.active && "No longer working"].filter(
+                        (tag): tag is string => Boolean(tag)
+                      ),
+                      value: due > 0 ? <span className="text-amber-800">{formatLKR(due)}</span> : undefined,
+                      valueNote:
+                        due > 0 ? (
+                          <span className="flex flex-col items-end gap-1.5">
+                            <span className="text-xs text-amber-800">owed</span>
+                            <button
+                              type="button"
+                              className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                              disabled={pending}
+                              onClick={() => {
+                                if (window.confirm(`Mark all of ${row.name}'s unpaid days as paid?`)) {
+                                  run(() => settleWorker(plantation.id, row.id), `${row.name} marked paid.`);
+                                }
+                              }}
+                            >
+                              Mark paid
+                            </button>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-emerald-700">All paid</span>
+                        ),
+                    });
+                  })}
+                </ul>
+              )}
+
+              <div className="space-y-4 border-t border-black/5 pt-5">
+                {listHead(
+                  "workday",
+                  `Work days in ${year}`,
+                  workDays.length > 0
+                    ? `${count(workDays.length, "day", "days")} · ${formatLKR(summary.wages)} in wages`
+                    : null,
+                  records.workers.length === 0
+                )}
+                {workDays.length === 0 ? (
+                  empty(
+                    records.workers.length === 0
+                      ? "Add a worker first, then record their work days here."
+                      : `No work days recorded in ${year}.`
+                  )
+                ) : (
+                  <ul className="space-y-2">
+                    {workDays.map((row) =>
+                      item("workday", row, "work day", {
+                        date: row.worked_on,
+                        title: workerName(row.worker_id),
+                        tags: [
+                          choiceLabel(WORK_TASKS[crop], row.task),
+                          row.kg_plucked !== null ? `${formatNumber(row.kg_plucked, 1)} kg` : "",
+                        ].filter(Boolean),
+                        value: formatLKR(row.wage),
+                        valueNote: (
+                          <span
+                            className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              row.paid ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
+                            }`}
+                          >
+                            {row.paid ? "Paid" : "Not paid"}
+                          </span>
+                        ),
+                      })
+                    )}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }
