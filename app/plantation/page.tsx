@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import PlantationNav from "@/components/plantation/PlantationNav";
 import PlantationWizard from "@/components/plantation/PlantationWizard";
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function PlantationPage() {
-  return <PlantationWizard />;
+  return (
+    <div className="space-y-4">
+      <PlantationNav current="calculator" />
+      <PlantationWizard />
+    </div>
+  );
 }
