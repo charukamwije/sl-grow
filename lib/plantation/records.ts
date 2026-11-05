@@ -8,6 +8,9 @@
  */
 import {
   ACTIVITY_TYPES,
+  AREA_UNIT_CHOICES,
+  toHectares,
+  type AreaUnit,
   EXPENSE_CATEGORIES,
   HARVEST_PRODUCTS,
   INCOME_CATEGORIES,
@@ -30,6 +33,10 @@ export type Plantation = {
   id: string;
   name: string;
   crop: PlantationCrop;
+  /** As the planter entered it, in `area_unit` */
+  area: number;
+  area_unit: AreaUnit;
+  /** The same land in hectares, for yields per hectare */
   area_ha: number;
   location: string;
   planted_on: string | null;
@@ -126,7 +133,8 @@ export const FIELDS: Record<RecordKind, Field[]> = {
       required: true,
       choices: () => PLANTATION_CROPS.map((crop) => ({ value: crop, label: CROP_LABELS[crop] })),
     },
-    { name: "area_ha", label: "Area (hectares)", type: "number", required: true, min: 0.01, max: 100_000, step: 0.01, hint: "1 acre is about 0.405 ha" },
+    { name: "area", label: "Land area", type: "number", required: true, min: 0.01, max: 250_000, step: 0.01 },
+    { name: "area_unit", label: "Unit", type: "choice", required: true, choices: () => AREA_UNIT_CHOICES, hint: "1 acre is about 0.405 ha" },
     { name: "location", label: "Location", type: "text", maxLength: TEXT, hint: "Village or district" },
     { name: "planted_on", label: "Planted on", type: "date" },
     notes(),
@@ -269,7 +277,14 @@ export function checkRecord(
     }
   }
 
-  return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, values };
+  if (Object.keys(errors).length > 0) return { ok: false, errors };
+
+  // Stored in hectares too, so yields compare whatever unit was used
+  if (kind === "plantation") {
+    values.area_ha = toHectares(values.area as number, values.area_unit as AreaUnit);
+  }
+
+  return { ok: true, values };
 }
 
 export type MonthTotal = { month: number; kg: number };

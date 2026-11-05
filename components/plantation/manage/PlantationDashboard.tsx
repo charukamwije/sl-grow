@@ -13,6 +13,7 @@ import {
 } from "@/app/plantation/manage/actions";
 import {
   ACTIVITY_TYPES,
+  areaLabel,
   choiceLabel,
   CROP_LABELS,
   EXPENSE_CATEGORIES,
@@ -188,7 +189,11 @@ export default function PlantationDashboard({
     },
     { label: "Profit", value: formatLKR(summary.profit), tone: summary.profit < 0 ? "bad" : undefined },
     { label: "Harvest", value: `${formatNumber(summary.harvestKg, 0)} kg` },
-    { label: "Yield", value: `${formatNumber(summary.harvestKg / plantation.area_ha, 0)} kg/ha` },
+    // Per unit of land the planter thinks in
+    {
+      label: "Yield",
+      value: `${formatNumber(summary.harvestKg / plantation.area, 0)} kg/${plantation.area_unit === "acres" ? "acre" : "ha"}`,
+    },
   ];
 
   return (
@@ -201,7 +206,8 @@ export default function PlantationDashboard({
         <div className="space-y-1">
           <h1 className={heading}>{plantation.name}</h1>
           <p className={muted}>
-            {CROP_LABELS[crop]} · {formatNumber(plantation.area_ha, 2)} ha
+            {CROP_LABELS[crop]} · {areaLabel(plantation.area, plantation.area_unit, (n) => formatNumber(n, 2))}
+            {plantation.area_unit === "acres" && ` (${formatNumber(plantation.area_ha, 2)} ha)`}
             {plantation.location && ` · ${plantation.location}`}
             {plantation.planted_on && ` · planted ${formatDay(plantation.planted_on)}`}
           </p>

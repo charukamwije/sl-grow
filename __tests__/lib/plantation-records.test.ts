@@ -11,21 +11,37 @@ describe("checkRecord", () => {
   it("accepts a plantation and stores numbers as numbers", () => {
     const result = checkRecord(
       "plantation",
-      { name: " Hill estate ", crop: "tea", area_ha: "2.5", location: "", planted_on: "", notes: "" },
+      { name: " Hill estate ", crop: "tea", area: "2.5", area_unit: "ha", location: "", planted_on: "", notes: "" },
       null
     );
 
     expect(result).toEqual({
       ok: true,
-      values: { name: "Hill estate", crop: "tea", area_ha: 2.5, location: "", planted_on: null, notes: "" },
+      values: {
+        name: "Hill estate",
+        crop: "tea",
+        area: 2.5,
+        area_unit: "ha",
+        area_ha: 2.5,
+        location: "",
+        planted_on: null,
+        notes: "",
+      },
     });
   });
 
+  it("takes the area in acres and stores it in hectares too", () => {
+    const result = checkRecord("plantation", { name: "Kurunduwatta", crop: "cinnamon", area: "5", area_unit: "acres" }, null);
+
+    expect(result).toMatchObject({ ok: true, values: { area: 5, area_unit: "acres" } });
+    if (result.ok) expect(result.values.area_ha).toBeCloseTo(2.0234, 4);
+  });
+
   it("names every missing or wrong field", () => {
-    const result = checkRecord("plantation", { name: "", crop: "rubber", area_ha: "0" }, null);
+    const result = checkRecord("plantation", { name: "", crop: "rubber", area: "0", area_unit: "sq ft" }, null);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(Object.keys(result.errors).sort()).toEqual(["area_ha", "crop", "name"]);
+    if (!result.ok) expect(Object.keys(result.errors).sort()).toEqual(["area", "area_unit", "crop", "name"]);
   });
 
   it("takes only the products of the plantation's crop", () => {

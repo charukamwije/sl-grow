@@ -12,6 +12,29 @@ export type PlantationCrop = (typeof PLANTATION_CROPS)[number];
 
 export type Choice = { value: string; label: string };
 
+export const AREA_UNITS = ["acres", "ha"] as const;
+
+export type AreaUnit = (typeof AREA_UNITS)[number];
+
+export const AREA_UNIT_CHOICES: Choice[] = [
+  { value: "acres", label: "Acres" },
+  { value: "ha", label: "Hectares" },
+];
+
+/** By definition: one acre is 0.40468564224 hectares */
+export const ACRE_IN_HA = 0.40468564224;
+
+export function toHectares(area: number, unit: AreaUnit): number {
+  return unit === "acres" ? area * ACRE_IN_HA : area;
+}
+
+const AREA_SHORT: Record<AreaUnit, [string, string]> = { acres: ["acre", "acres"], ha: ["ha", "ha"] };
+
+/** "5 acres", "1 acre", "2.5 ha" */
+export function areaLabel(area: number, unit: AreaUnit, format: (n: number) => string): string {
+  return `${format(area)} ${AREA_SHORT[unit][area === 1 ? 0 : 1]}`;
+}
+
 export const CROP_LABELS: Record<PlantationCrop, string> = {
   cinnamon: "Ceylon cinnamon",
   tea: "Tea",

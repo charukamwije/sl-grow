@@ -40,10 +40,16 @@ export const TABLES: Record<Exclude<RecordKind, "plantation">, { table: string; 
   workday: { table: "plantation_work_days", date: "worked_on" },
 };
 
-const PLANTATION_COLUMNS = "id, name, crop, area_ha, location, planted_on, notes, created_at";
+const PLANTATION_COLUMNS =
+  "id, name, crop, area, area_unit, area_ha, location, planted_on, notes, created_at";
 
 function toPlantation(row: Plantation): Plantation {
-  return { ...row, area_ha: num(row.area_ha), created_at: new Date(row.created_at).toISOString() };
+  return {
+    ...row,
+    area: num(row.area),
+    area_ha: num(row.area_ha),
+    created_at: new Date(row.created_at).toISOString(),
+  };
 }
 
 export async function listPlantations(uid: string): Promise<Plantation[]> {

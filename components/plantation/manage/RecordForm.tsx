@@ -36,7 +36,11 @@ function defaults(kind: RecordKind, workers: Worker[]): FormValues {
     else values[field.name] = "";
   }
   if (kind === "transaction") values.kind = "expense";
-  if (kind === "plantation") values.crop = "tea";
+  if (kind === "plantation") {
+    values.crop = "tea";
+    // Most smallholders know their land in acres
+    values.area_unit = "acres";
+  }
   if (kind === "workday") {
     const worker = workers.find((entry) => entry.active) ?? workers[0];
     if (worker) {

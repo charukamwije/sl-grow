@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRightIcon, PlusIcon } from "@heroicons/react/20/solid";
 import { savePlantation } from "@/app/plantation/manage/actions";
-import { CROP_LABELS } from "@/lib/data/plantation-records";
+import { areaLabel, CROP_LABELS } from "@/lib/data/plantation-records";
 import type { Plantation, PlantationSummary } from "@/lib/plantation/records";
 import { formatLKR, formatNumber } from "@/lib/products";
 import { btnPrimary, card, muted, subheading } from "../../ui/styles";
@@ -40,7 +40,8 @@ export default function PlantationList({ plantations, year }: PlantationListProp
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-gray-900">{plantation.name}</p>
                     <p className="text-xs text-gray-500">
-                      {CROP_LABELS[plantation.crop]} · {formatNumber(plantation.area_ha, 2)} ha
+                      {CROP_LABELS[plantation.crop]} ·{" "}
+                      {areaLabel(plantation.area, plantation.area_unit, (n) => formatNumber(n, 2))}
                       {plantation.location && ` · ${plantation.location}`}
                     </p>
                   </div>
