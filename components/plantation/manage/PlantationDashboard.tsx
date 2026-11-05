@@ -34,10 +34,11 @@ import {
 import { formatLKR, formatNumber } from "@/lib/products";
 import { btnDanger, btnGhost, btnPrimary, btnSecondary, card, chip, heading, muted } from "../../ui/styles";
 import HarvestChart from "./HarvestChart";
-import RecordForm, { type FormValues } from "./RecordForm";
+import RecordForm, { today, type FormValues } from "./RecordForm";
+import WorkCalendar, { type DayTotals } from "./WorkCalendar";
 
 type ChildKind = Exclude<RecordKind, "plantation">;
-type Tab = "summary" | "harvests" | "money" | "activities" | "workers";
+type Tab = "summary" | "harvests" | "money" | "activities" | "workers" | "workdays";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "summary", label: "Summary", icon: "📊" },
@@ -45,6 +46,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "money", label: "Money", icon: "💰" },
   { id: "activities", label: "Field work", icon: "🛠️" },
   { id: "workers", label: "Workers", icon: "👷" },
+  { id: "workdays", label: "Work days", icon: "📅" },
 ];
 
 const ADD_LABELS: Record<ChildKind, string> = {
@@ -77,7 +79,8 @@ function formatDay(value: string): string {
   });
 }
 
-type Editing = { kind: ChildKind; id: string | null } | null;
+/** The record whose form is open; a new one can start from `prefill` */
+type Editing = { kind: ChildKind; id: string | null; prefill?: FormValues } | null;
 
 /** What a record's row shows */
 type Row = {
@@ -126,6 +129,8 @@ export default function PlantationDashboard({
   const years = useMemo(() => recordYears(records, currentYear), [records, currentYear]);
   const [year, setYear] = useState(currentYear);
   const [tab, setTab] = useState<Tab>("summary");
+  const [month, setMonth] = useState(() => new Date().getMonth());
+  const [day, setDay] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing>(null);
   const [settings, setSettings] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -154,7 +159,7 @@ export default function PlantationDashboard({
   const form = (kind: ChildKind, id: string | null, initial?: FormValues) => (
     <div className="rounded-3xl bg-emerald-50/50 p-4 ring-1 ring-emerald-100">
       <RecordForm
-        key={`${kind}-${id ?? "new"}`}
+        key={`${kind}-${id ?? "new"}-${JSON.stringify(initial ?? {})}`}
         kind={kind}
         crop={crop}
         initial={initial}
@@ -242,7 +247,7 @@ export default function PlantationDashboard({
           </button>
         )}
       </div>
-      {editing?.kind === kind && editing.id === null && form(kind, null)}
+      {editing?.kind === kind && editing.id === null && form(kind, null, editing.prefill)}
     </div>
   );
 
@@ -255,6 +260,36 @@ export default function PlantationDashboard({
   const transactions = ofYear(records.transactions, (row) => row.occurred_on);
   const activities = ofYear(records.activities, (row) => row.done_on);
   const workDays = ofYear(records.workDays, (row) => row.worked_on);
+
+  // The calendar's marks: who worked each day, what it cost, whether it is paid
+  const dayTotals = new Map<string, DayTotals>();
+  for (const row of workDays) {
+    const totals = dayTotals.get(row.worked_on) ?? { workers: 0, wages: 0, unpaid: false };
+    totals.workers += 1;
+    totals.wages += row.wage;
+    totals.unpaid ||= !row.paid;
+    dayTotals.set(row.worked_on, totals);
+  }
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
+  const monthDays = workDays.filter((row) => row.worked_on.startsWith(monthPrefix));
+  const dayRows = day ? workDays.filter((row) => row.worked_on === day) : [];
+  const notYet = day
+    ? records.workers.filter((worker) => worker.active && !dayRows.some((row) => row.worker_id === worker.id))
+    : [];
+
+  // A new year opens on its latest month with work, or January
+  const chooseYear = (next: number) => {
+    setYear(next);
+    setDay(null);
+    setEditing(null);
+    if (next === currentYear) setMonth(new Date().getMonth());
+    else {
+      const months = records.workDays
+        .filter((row) => row.worked_on.startsWith(`${next}-`))
+        .map((row) => Number(row.worked_on.slice(5, 7)) - 1);
+      setMonth(months.length > 0 ? Math.max(...months) : 0);
+    }
+  };
 
   const tiles: { label: string; value: string; note?: string; tone?: "bad" }[] = [
     { label: "Income", value: formatLKR(summary.income) },
@@ -333,7 +368,7 @@ export default function PlantationDashboard({
         </p>
       )}
 
-      <div role="tablist" aria-label="Records" className="flex gap-2 overflow-x-auto pb-1">
+      <div role="tablist" aria-label="Records" className="flex flex-wrap gap-2">
         {TABS.map((entry) => (
           <button
             key={entry.id}
@@ -360,7 +395,7 @@ export default function PlantationDashboard({
             type="button"
             className={chip(option === year)}
             aria-pressed={option === year}
-            onClick={() => setYear(option)}
+            onClick={() => chooseYear(option)}
           >
             {option}
           </button>
@@ -534,46 +569,150 @@ export default function PlantationDashboard({
                 </ul>
               )}
 
-              <div className="space-y-4 border-t border-black/5 pt-5">
-                {listHead(
-                  "workday",
-                  `Work days in ${year}`,
-                  workDays.length > 0
-                    ? `${count(workDays.length, "day", "days")} · ${formatLKR(summary.wages)} in wages`
-                    : null,
-                  records.workers.length === 0
-                )}
-                {workDays.length === 0 ? (
-                  empty(
-                    records.workers.length === 0
-                      ? "Add a worker first, then record their work days here."
-                      : `No work days recorded in ${year}.`
-                  )
-                ) : (
-                  <ul className="space-y-2">
-                    {workDays.map((row) =>
-                      item("workday", row, "work day", {
-                        date: row.worked_on,
-                        title: workerName(row.worker_id),
-                        tags: [
-                          choiceLabel(WORK_TASKS[crop], row.task),
-                          row.kg_plucked !== null ? `${formatNumber(row.kg_plucked, 1)} kg` : "",
-                        ].filter(Boolean),
-                        value: formatLKR(row.wage),
-                        valueNote: (
-                          <span
-                            className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              row.paid ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
-                            }`}
-                          >
-                            {row.paid ? "Paid" : "Not paid"}
-                          </span>
-                        ),
-                      })
-                    )}
-                  </ul>
+            </>
+          )}
+
+          {tab === "workdays" && (
+            <>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Work days</h2>
+                  <p className="text-sm text-gray-600">
+                    {monthDays.length > 0
+                      ? `This month: ${count(monthDays.length, "worker day", "worker days")} · ${formatLKR(
+                          monthDays.reduce((sum, row) => sum + row.wage, 0)
+                        )} in wages`
+                      : "Choose a day to record who worked."}
+                  </p>
+                </div>
+                {records.workers.length > 0 && (
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    onClick={() => {
+                      // Today, if it is in the year being shown
+                      const now = today();
+                      if (now.startsWith(`${year}-`)) {
+                        setMonth(Number(now.slice(5, 7)) - 1);
+                        setDay(now);
+                        setEditing(null);
+                      }
+                    }}
+                    disabled={!today().startsWith(`${year}-`)}
+                  >
+                    Today
+                  </button>
                 )}
               </div>
+
+              {records.workers.length === 0 ? (
+                empty("Add your workers in the Workers tab first, then mark the days they work here.")
+              ) : (
+                <div className="grid gap-6 xl:grid-cols-2">
+                  <WorkCalendar
+                    year={year}
+                    month={month}
+                    onMonth={(next) => {
+                      setMonth(next);
+                      setDay(null);
+                      setEditing(null);
+                    }}
+                    days={dayTotals}
+                    selected={day}
+                    onSelect={(date) => {
+                      setDay(date);
+                      setEditing(null);
+                    }}
+                    today={today()}
+                  />
+
+                  <div className="space-y-4 xl:border-l xl:border-black/5 xl:pl-6">
+                    {!day ? (
+                      <p className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
+                        Choose a day on the calendar to see or record who worked.
+                      </p>
+                    ) : (
+                      <>
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900">
+                            {new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+                              weekday: "long",
+                              day: "numeric",
+                              month: "long",
+                              timeZone: "UTC",
+                            })}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {dayRows.length > 0
+                              ? `${count(dayRows.length, "worker", "workers")} · ${formatLKR(
+                                  dayRows.reduce((sum, row) => sum + row.wage, 0)
+                                )}`
+                              : "No one recorded yet."}
+                          </p>
+                        </div>
+
+                        {editing?.kind === "workday" && editing.id === null ? (
+                          form("workday", null, editing.prefill)
+                        ) : (
+                          notYet.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-gray-700">Who worked this day?</p>
+                              <div className="flex flex-wrap gap-2">
+                                {notYet.map((worker) => (
+                                  <button
+                                    key={worker.id}
+                                    type="button"
+                                    className="inline-flex items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-300 transition hover:bg-emerald-50"
+                                    onClick={() =>
+                                      setEditing({
+                                        kind: "workday",
+                                        id: null,
+                                        prefill: {
+                                          worked_on: day,
+                                          worker_id: worker.id,
+                                          wage: String(worker.daily_wage),
+                                        },
+                                      })
+                                    }
+                                  >
+                                    <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                                    {worker.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )}
+
+                        {dayRows.length > 0 && (
+                          <ul className="space-y-2">
+                            {dayRows.map((row) =>
+                              item("workday", row, "work day", {
+                                icon: "👷",
+                                title: workerName(row.worker_id),
+                                tags: [
+                                  choiceLabel(WORK_TASKS[crop], row.task),
+                                  row.kg_plucked !== null ? `${formatNumber(row.kg_plucked, 1)} kg` : "",
+                                ].filter(Boolean),
+                                value: formatLKR(row.wage),
+                                valueNote: (
+                                  <span
+                                    className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                      row.paid ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"
+                                    }`}
+                                  >
+                                    {row.paid ? "Paid" : "Not paid"}
+                                  </span>
+                                ),
+                              })
+                            )}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>
