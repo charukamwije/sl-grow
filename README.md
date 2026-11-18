@@ -4,6 +4,14 @@ A web app for Sri Lankan households that want to grow vegetables at home. It wor
 
 The full requirements are in [docs/SRS.md](docs/SRS.md).
 
+## Screenshots
+
+| Home | Planner |
+|---|---|
+| ![Landing page](docs/screenshots/home.png) | ![Garden planner, step 1](docs/screenshots/planner.png) |
+| **Shop** | **Plantation** |
+| ![Shop with seedlings and supplies](docs/screenshots/shop.png) | ![Plantation investment calculator](docs/screenshots/plantation.png) |
+
 ## Features
 
 - **Landing page** (`/`): what the app does, Sri Lanka's Maha and Yala seasons and growing zones, charts built from the planner's data (days to first harvest, value per sq ft), and buttons to the planner and shop.
